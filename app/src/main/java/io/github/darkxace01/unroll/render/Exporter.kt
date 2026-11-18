@@ -69,18 +69,19 @@ class Exporter(private val context: Context, private val photos: Photos, private
     }
 
     /** Saves every slide (or just [only]) to the gallery and returns their URIs in order. */
-    suspend fun exportSlides(p: Project, only: Collection<Int>? = null, onProgress: (Int, Int) -> Unit = { _, _ -> }): List<Uri> = withContext(Dispatchers.IO) {
+    /** Saves every slide (or just [only]) at [scale]× Instagram size (1080 wide at 1×). */
+    suspend fun exportSlides(p: Project, only: Collection<Int>? = null, scale: Float = 1f, onProgress: (Int, Int) -> Unit = { _, _ -> }): List<Uri> = withContext(Dispatchers.IO) {
         val indices = (0 until p.slides).filter { only == null || it in only }
         val out = mutableListOf<Uri>()
         val cache = HashMap<String, Bitmap?>()
         indices.forEachIndexed { n, i ->
             onProgress(n, indices.size)
             // Keep only photos that reach into this slide or later ones.
-            val bmp = renderSlide(p, i, 1f, cache)
-            out += save(bmp, "${fileBase(p)} ${(i + 1).toString().padStart(2, '0')}", folder(p))
+            val bmp = renderSlide(p, i, scale, cache)
+            out += save(bmp, "${fileBase(p)} ${(i + 1).toString().padStart(2, '0')}${if (scale > 1f) " ${scale.toInt()}x" else ""}", folder(p))
             bmp.recycle()
             val ahead = Seams.slide(p, i + 1)
-            val keep = p.items.filterIsInstance<PhotoItem>().filter { it.frame.bounds().right > ahead.left }.map { "${it.uri}@${neededSide(it)}" }.toSet()
+            val keep = p.items.filterIsInstance<PhotoItem>().filter { it.frame.bounds().right > ahead.left }.map { "${it.uri}@${neededScaled(it, scale)}" }.toSet()
             cache.keys.retainAll(keep)
         }
         onProgress(indices.size, indices.size)
@@ -117,6 +118,17 @@ class Exporter(private val context: Context, private val photos: Photos, private
 /** Handing the slides to Instagram (or anything else). No Instagram login or API: just Android sharing. */
 object Share {
     const val INSTAGRAM = "com.instagram.android"
+    /** TikTok ships under two package names depending on the region. */
+    val TIKTOK = listOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill")
+
+    fun tiktok(context: Context) = TIKTOK.firstOrNull { has(context, it) }
+
+    /** Straight into one app's share screen, or the chooser if it isn't there. */
+    fun toApp(context: Context, uris: List<Uri>, pkg: String?) {
+        val launched = pkg != null && has(context, pkg) &&
+            runCatching { context.startActivity(intent(uris, pkg, mimeOf(context, uris)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true }.getOrDefault(false)
+        if (!launched) anywhere(context, uris)
+    }
 
     fun has(context: Context, pkg: String) = runCatching {
         val pm = context.packageManager

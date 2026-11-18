@@ -18,8 +18,8 @@ android {
         // Android 10: scoped storage and MediaStore RELATIVE_PATH for saving slides to the gallery.
         minSdk = 29
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.4.0"
     }
 
     // Release signing reads keystore.properties at the project root (never committed). Without it,

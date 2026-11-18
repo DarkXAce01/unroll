@@ -94,8 +94,20 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
 
     init {
         viewModelScope.launch {
-            _project.filterNotNull().debounce(400).collect { app.store.save(it) }
+            _project.filterNotNull().debounce(400).collect { if (it.id !in discarded) app.store.save(it) }
         }
+    }
+
+    private val discarded = mutableSetOf<String>()
+
+    /** Leaving a carousel with nothing on it: drop it, so Home never fills with blank cards. */
+    fun discardIfEmpty() {
+        val p = _project.value ?: return
+        if (p.items.isNotEmpty()) return
+        discarded += p.id
+        _project.value = null
+        history = null
+        viewModelScope.launch { app.store.delete(p.id) }
     }
 
     fun open(id: String) {

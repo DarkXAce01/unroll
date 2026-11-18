@@ -33,9 +33,13 @@ fun UnrollRoot(shared: List<Uri>, onSharedDone: () -> Unit) {
     val app = LocalContext.current.app
     val stack = remember { mutableStateListOf<Route>(Route.Home) }
     fun go(r: Route) { stack.add(r) }
-    fun back() { if (stack.size > 1) stack.removeAt(stack.lastIndex) }
     // The editor's state is shared with preview and export, so they always show the latest edit.
     val editor: EditorViewModel = viewModel()
+    fun back() {
+        if (stack.size <= 1) return
+        val leaving = stack.removeAt(stack.lastIndex)
+        if (leaving is Route.Editor) editor.discardIfEmpty()
+    }
     val project by editor.project.collectAsStateWithLifecycle()
 
     LaunchedEffect(shared) {

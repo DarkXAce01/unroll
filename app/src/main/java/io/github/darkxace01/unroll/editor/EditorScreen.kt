@@ -1,5 +1,15 @@
 package io.github.darkxace01.unroll.editor
 
+import io.github.darkxace01.unroll.ui.ToolIcons
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Button
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -96,15 +106,16 @@ fun EditorScreen(projectId: String, onBack: () -> Unit, onPreview: () -> Unit, o
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().navigationBarsPadding()) {
         // Top bar
-        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
-            TextButton(onClick = { renaming = true }, modifier = Modifier.weight(1f)) {
-                Text(p.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-            }
-            TextButton(onClick = vm::undo, enabled = canUndo) { Text("Undo") }
-            TextButton(onClick = vm::redo, enabled = canRedo) { Text("Redo") }
-            TextButton(onClick = onPreview) { Text("Preview") }
-            TextButton(onClick = onExport) { Text("Export") }
+        Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(ToolIcons.Back, "Back") }
+            Text(
+                p.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable { renaming = true }.padding(horizontal = 6.dp, vertical = 8.dp),
+            )
+            IconButton(onClick = vm::undo, enabled = canUndo) { Icon(ToolIcons.Undo, "Undo") }
+            IconButton(onClick = vm::redo, enabled = canRedo) { Icon(ToolIcons.Redo, "Redo") }
+            IconButton(onClick = onPreview) { Icon(ToolIcons.Play, "Preview") }
+            Button(onClick = onExport, contentPadding = PaddingValues(horizontal = 18.dp), modifier = Modifier.padding(start = 4.dp, end = 8.dp).height(40.dp)) { Text("Export") }
         }
 
         CanvasView(
@@ -138,70 +149,61 @@ fun EditorScreen(projectId: String, onBack: () -> Unit, onPreview: () -> Unit, o
             Hint("Drag and pinch to move the photo in its frame. Tap outside when done.") { vm.crop(null) }
         }
 
-        // Tools: for the selected item, or for the whole carousel.
+        // Tools: for the selected item, or for the whole carousel. Icons with words; housekeeping last.
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 6.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (item != null) {
+                Tool("Done", ToolIcons.Done, strong = true) { vm.select(null); vm.crop(null) }
+                ToolGap()
+            }
             when (item) {
                 is PhotoItem -> {
-                    Tool("Crop") { vm.crop(if (cropping == item.id) null else item.id) }
-                    Tool("Adjust") { sheet = Sheet.Adjust }
-                    Tool("Frame") { sheet = Sheet.Frames }
-                    Tool("Style") { sheet = Sheet.Style }
-                    Tool("Replace") { replacing = item.id; pickOne.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
-                    Tool("Motion") { sheet = Sheet.Motion }
-                    Tool("Front") { vm.front(item.id) }
-                    Tool("Back") { vm.back(item.id) }
-                    Tool("Copy") { vm.duplicate(item.id) }
-                    Tool("Delete") { vm.delete(item.id) }
+                    Tool("Crop", ToolIcons.Crop, on = cropping == item.id) { vm.crop(if (cropping == item.id) null else item.id) }
+                    Tool("Adjust", ToolIcons.Adjust) { sheet = Sheet.Adjust }
+                    Tool("Frame", ToolIcons.Frame) { sheet = Sheet.Frames }
+                    Tool("Style", ToolIcons.Style) { sheet = Sheet.Style }
+                    Tool("Replace", ToolIcons.Replace) { replacing = item.id; pickOne.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+                    Tool("Motion", ToolIcons.Motion) { sheet = Sheet.Motion }
+                    Housekeeping(vm, item.id)
                 }
                 is TextItem -> {
-                    Tool("Edit") { sheet = Sheet.Text }
-                    Tool("Motion") { sheet = Sheet.Motion }
-                    Tool("Front") { vm.front(item.id) }
-                    Tool("Back") { vm.back(item.id) }
-                    Tool("Copy") { vm.duplicate(item.id) }
-                    Tool("Delete") { vm.delete(item.id) }
+                    Tool("Edit", ToolIcons.Edit) { sheet = Sheet.Text }
+                    Tool("Motion", ToolIcons.Motion) { sheet = Sheet.Motion }
+                    Housekeeping(vm, item.id)
                 }
                 is ShapeItem -> {
-                    Tool("Colour") { sheet = Sheet.Shape }
-                    Tool("Motion") { sheet = Sheet.Motion }
-                    Tool("Front") { vm.front(item.id) }
-                    Tool("Back") { vm.back(item.id) }
-                    Tool("Copy") { vm.duplicate(item.id) }
-                    Tool("Delete") { vm.delete(item.id) }
+                    Tool("Colour", ToolIcons.Colour) { sheet = Sheet.Shape }
+                    Tool("Motion", ToolIcons.Motion) { sheet = Sheet.Motion }
+                    Housekeeping(vm, item.id)
                 }
                 is io.github.darkxace01.unroll.model.StickerItem -> {
-                    Tool(if (io.github.darkxace01.unroll.model.Stickers.byId(item.sticker)?.editable == true) "Words & colour" else "Colour") { sheet = Sheet.Sticker }
-                    Tool("Flip") { vm.updateItem(item.copy(flip = !item.flip)) }
-                    Tool("Motion") { sheet = Sheet.Motion }
-                    Tool("Front") { vm.front(item.id) }
-                    Tool("Back") { vm.back(item.id) }
-                    Tool("Copy") { vm.duplicate(item.id) }
-                    Tool("Delete") { vm.delete(item.id) }
+                    if (io.github.darkxace01.unroll.model.Stickers.byId(item.sticker)?.editable == true) Tool("Words", ToolIcons.Edit) { sheet = Sheet.Sticker }
+                    Tool("Colour", ToolIcons.Colour) { sheet = Sheet.Sticker }
+                    Tool("Flip", ToolIcons.Flip) { vm.updateItem(item.copy(flip = !item.flip)) }
+                    Tool("Motion", ToolIcons.Motion) { sheet = Sheet.Motion }
+                    Housekeeping(vm, item.id)
                 }
                 is io.github.darkxace01.unroll.model.RouteItem -> {
-                    Tool("Style") { sheet = Sheet.Route }
-                    Tool("Add bend") { vm.routeAddPoint(item.id) }
-                    Tool("Motion") { sheet = Sheet.Motion }
-                    Tool("Front") { vm.front(item.id) }
-                    Tool("Back") { vm.back(item.id) }
-                    Tool("Copy") { vm.duplicate(item.id) }
-                    Tool("Delete") { vm.delete(item.id) }
+                    Tool("Style", ToolIcons.Style) { sheet = Sheet.Route }
+                    Tool("Add bend", ToolIcons.Bend) { vm.routeAddPoint(item.id) }
+                    Tool("Motion", ToolIcons.Motion) { sheet = Sheet.Motion }
+                    Housekeeping(vm, item.id)
                 }
                 null -> {
-                    Tool("Templates") { sheet = Sheet.Templates }
-                    Tool("Theme") { sheet = Sheet.Theme }
-                    Tool("Photos") { pickOnto = null; pickMany.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
-                    Tool("Photo here") { pickOnto = slide(); pickMany.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
-                    Tool("Text") { vm.addText(slide()); sheet = Sheet.Text }
-                    Tool("Stickers") { sheet = Sheet.Stickers }
-                    Tool("Frames") { sheet = Sheet.AddFrame }
-                    Tool("Routes & lines") { sheet = Sheet.Lines }
-                    Tool("Motion") { sheet = Sheet.Motion }
-                    Tool("Layout") { sheet = Sheet.Layout }
-                    Tool("Background") { sheet = Sheet.Background }
+                    Tool("Templates", ToolIcons.Templates) { sheet = Sheet.Templates }
+                    Tool("Photos", ToolIcons.Photos) { pickOnto = null; pickMany.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+                    Tool("Photo here", ToolIcons.PhotoHere) { pickOnto = slide(); pickMany.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+                    Tool("Text", ToolIcons.Text) { vm.addText(slide()); sheet = Sheet.Text }
+                    Tool("Stickers", ToolIcons.Stickers) { sheet = Sheet.Stickers }
+                    Tool("Frames", ToolIcons.Frames) { sheet = Sheet.AddFrame }
+                    Tool("Lines", ToolIcons.Routes) { sheet = Sheet.Lines }
+                    Tool("Theme", ToolIcons.Theme) { sheet = Sheet.Theme }
+                    Tool("Background", ToolIcons.Background) { sheet = Sheet.Background }
+                    Tool("Layout", ToolIcons.Layout) { sheet = Sheet.Layout }
+                    Tool("Motion", ToolIcons.Motion) { sheet = Sheet.Motion }
                 }
             }
         }
@@ -316,8 +318,30 @@ private fun MotionAll(onAll: () -> Unit, onNone: () -> Unit, onPreview: () -> Un
 }
 
 @Composable
-private fun Tool(label: String, onClick: () -> Unit) {
-    TextButton(onClick = onClick) { Text(label) }
+private fun Tool(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, on: Boolean = false, strong: Boolean = false, onClick: () -> Unit) {
+    val fg = if (strong) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurface
+    Column(
+        Modifier.widthIn(min = 62.dp).clip(RoundedCornerShape(14.dp))
+            .background(if (strong) MaterialTheme.colorScheme.onSurface else if (on) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f) else Color.Transparent)
+            .clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(icon, null, Modifier.size(22.dp), tint = fg)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = fg, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
+    }
+}
+
+@Composable
+private fun ToolGap() = Box(Modifier.padding(horizontal = 6.dp).size(1.dp, 34.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+/** Order, copy and delete: the same four at the end of every item's tools. */
+@Composable
+private fun Housekeeping(vm: EditorViewModel, id: String) {
+    ToolGap()
+    Tool("Forward", ToolIcons.Front) { vm.front(id) }
+    Tool("Backward", ToolIcons.Back2) { vm.back(id) }
+    Tool("Copy", ToolIcons.Copy) { vm.duplicate(id) }
+    Tool("Delete", ToolIcons.Delete) { vm.delete(id) }
 }
 
 @Composable

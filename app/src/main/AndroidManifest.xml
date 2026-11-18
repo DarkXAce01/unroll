@@ -11,6 +11,9 @@
     <queries>
         <!-- To check whether Instagram is installed, for "Post to Instagram". -->
         <package android:name="com.instagram.android" />
+        <!-- And TikTok, for its share button (shown only when it's installed). -->
+        <package android:name="com.zhiliaoapp.musically" />
+        <package android:name="com.ss.android.ugc.trill" />
     </queries>
 
     <application

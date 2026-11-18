@@ -68,9 +68,10 @@ A Grease Pencil Studio app. See [PLAN.md](PLAN.md) for the product plan and road
 
 **Out**
 - Preview: swipe it like a feed post, with the profile-grid tile
-- Export: one JPEG per slide at exactly 1080 wide (quality 90/95/100), in order, in Pictures/Unroll. No
-  watermark. Optionally the whole thing as one long image
-- Post to Instagram straight into its carousel composer, or share anywhere
+- Export page shows the post the way Instagram will (swipe it), then one tap sends it
+- Sizes: 1× (exactly 1080 wide, what Instagram uses), 2× or 3× for printing and other apps, with the file
+  size shown. JPEG quality 90/95/100, in order, in Pictures/Unroll. No watermark. Optionally one long image
+- Post to Instagram straight into its carousel composer, TikTok (when installed), save, or share anywhere
 
 **Support (optional, never a gate)**
 - Play build: a tip jar and a "watch an ad" button after an export and in Settings. That's the only place an
