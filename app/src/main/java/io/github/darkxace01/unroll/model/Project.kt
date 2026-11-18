@@ -147,6 +147,7 @@ enum class TextAlign { Start, Center, End }
 enum class FontKey(val label: String) {
     Sans("Sans"), Serif("Serif"), Mono("Mono"), Condensed("Condensed"), Display("Display"),
     Elegant("Elegant"), ElegantItalic("Elegant italic"), Hand("Handwritten"), Pixel("Pixel"), Grotesk("Grotesk"),
+    Magazine("Magazine"), Marker("Marker"), Poster("Poster"), Retro("Retro script"), Headline("Headline"), Typewriter("Typewriter"),
 }
 
 @Serializable

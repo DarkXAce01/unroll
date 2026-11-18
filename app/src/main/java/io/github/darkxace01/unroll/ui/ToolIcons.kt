@@ -44,6 +44,7 @@ object ToolIcons {
     val Background by lazy { icon("background", "M4 4h16v16H4z", "M4 15l5-5 11 10", "M4 9.5l5.5-5.5", "M9 20l11-11") }
 
     // Item tools
+    val PhotoInside by lazy { icon("photo-inside", "M3.5 4.5h17v15h-17z", "M3.5 13l4-4 4 4", "M12 11.5h7v6.5h-7z") }
     val Crop by lazy { icon("crop", "M6 2.5V18h15.5", "M2.5 6H18v15.5") }
     val Adjust by lazy { icon("adjust", "M4 7h10", "M18 7h2", "M4 17h4", "M12 17h8", "M16 4.5v5", "M10 14.5v5") }
     val Frame by lazy { icon("frame", "M5 3.5h14v17H5z", "M8 6.5h8v9H8z") }

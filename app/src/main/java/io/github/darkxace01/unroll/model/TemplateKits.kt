@@ -122,6 +122,9 @@ class KitScope(val b: TemplateBuilder, val kit: Kit) {
 
 object TemplateKits {
 
+    /** Grids of tight cells: only for kits whose photos can take any shape (a polaroid can't be a tall strip). */
+    private val tightGrids = setOf("triptych", "rows", "bento")
+
     val layouts = listOf(
         TemplateLayout("pairs", "Pairs") {
             slides = slidesFor(count - 1, 2f, 1)
@@ -244,6 +247,44 @@ object TemplateKits {
                 photo(1f + f.left / W, f.top / H, 1f + f.right / W, f.bottom / H, 0f, anim = Anim(AnimKind.Fade, (i % 3) * 0.15f, 0.6f))
             }
         },
+        TemplateLayout("triptych", "Three tall", sample = 7) {
+            slides = slidesFor(count - 1, 3f, 1)
+            heroCover()
+            for (s in 1 until slides) {
+                val w = (0.88f - 0.04f) / 3
+                for (k in 0 until 3) photo(s + 0.06f + k * (w + 0.02f), 0.12f, s + 0.06f + k * (w + 0.02f) + w, 0.78f, 0f)
+                caption(s + 0.5f, 0.88f, 0.6f, s, rotation = 0f)
+            }
+        },
+        TemplateLayout("rows", "Three wide", sample = 7) {
+            slides = slidesFor(count - 1, 3f, 1)
+            heroCover()
+            for (s in 1 until slides) {
+                for (k in 0 until 3) photo(s + 0.07f, 0.05f + k * 0.3f, s + 0.93f, 0.05f + k * 0.3f + 0.28f, 0f)
+                caption(s + 0.5f, 0.965f, 0.5f, s, rotation = 0f)
+            }
+        },
+        TemplateLayout("inset", "Photo in photo") {
+            slides = slidesFor(count - 1, 2f, 1)
+            heroCover()
+            for (s in 1 until slides) {
+                // One photo fills the slide; a second, in the kit's frame, sits in its corner.
+                b.photo(s.toFloat(), 0f, s + 1f, 1f, 0f, PhotoStyle(), Anim(AnimKind.Fade, 0f, 0.6f))
+                val right = s % 2 == 1
+                photo(if (right) s + 0.46f else s + 0.08f, 0.5f, if (right) s + 0.93f else s + 0.55f, 0.93f, if (right) 4f else -4f)
+            }
+        },
+        TemplateLayout("bento", "Bento", sample = 9) {
+            slides = slidesFor(count - 1, 4f, 1)
+            heroCover()
+            for (s in 1 until slides) {
+                val m = 0.06f; val g = 0.02f
+                photo(s + m, 0.05f, s + 0.6f, 0.62f, 0f)
+                photo(s + 0.6f + g, 0.05f, s + 1 - m, 0.335f - g / 2, 0f)
+                photo(s + 0.6f + g, 0.335f + g / 2, s + 1 - m, 0.62f, 0f)
+                photo(s + m, 0.62f + g, s + 1 - m, 0.93f, 0f)
+            }
+        },
         TemplateLayout("diary", "Diary pages", sample = 5) {
             slides = slidesFor(count, 1f, 1)
             heroCover()
@@ -266,17 +307,17 @@ object TemplateKits {
         Kit("instant-pastel", "Instant pastel", Category.Instant, Themes.Blush, listOf(preset("instax-pink"), preset("instax-white"), preset("instax-sky")), TitleSpec.Sticker("titles/script-line-title"),
             listOf("shine/heart-rose", "shine/sparkles-gold", "diecut/heart", "beads/word-pastel-summer"), tape = "tape/hearts-pink", caption = "♡ {nn}", tilt = 5f, pattern = Pattern.Dots, tags = "instax cute pastel"),
         Kit("film-noir", "Film noir", Category.Film, Themes.Noir, listOf(PhotoStyle(frame = FrameKind.Film)), TitleSpec.Sticker("titles/spaced-title"),
-            captionStickers = (0 until 20).map { "subtitles/$it" }, layouts = setOf("strip", "solo", "pairs", "column", "seam", "hero"), tags = "cinema movie subtitles dark"),
+            captionStickers = (0 until 20).map { "subtitles/$it" }, layouts = setOf("strip", "solo", "pairs", "column", "seam", "hero", "triptych", "inset"), tags = "cinema movie subtitles dark"),
         Kit("contact-sheet", "Contact sheet", Category.Film, Themes.Sand, listOf(preset("negative")), TitleSpec.Sticker("titles/boxed-title"),
-            listOf("scribbles/circle", "scribbles/check", "scribbles/star"), caption = "{nn}A", pattern = Pattern.Paper, layouts = setOf("strip", "grid", "solo", "trio", "pairs"), tags = "negative analog 35mm"),
+            listOf("scribbles/circle", "scribbles/check", "scribbles/star"), caption = "{nn}A", pattern = Pattern.Paper, layouts = setOf("strip", "grid", "solo", "trio", "pairs", "rows"), tags = "negative analog 35mm"),
         Kit("stamps", "Stamp collector", Category.Stationery, Themes.Retro, listOf(PhotoStyle(frame = FrameKind.Stamp, shadow = 8f)), TitleSpec.Sticker("titles/badge-circle-place", "{place}", 0.6f),
             listOf("stamps/postmark-round", "stamps/rubber-par-avion-oval", "stamps/palm", "travel/boarding"), caption = "{nn}c", tilt = 4f, pattern = Pattern.Paper, route = true, tags = "postage mail post"),
         Kit("torn-journal", "Torn journal", Category.Paper, Themes.Forest, listOf(PhotoStyle(frame = FrameKind.Torn, shadow = 16f), preset("deckle-cream")), TitleSpec.Words(FontRole.Hand, 150f),
             listOf("flowers/leaf-sprig", "flowers/daisy", "labels/kraft-tag-yellow", "scribbles/leaf"), tape = "tape/kraft", caption = "day {day}", tilt = 3f, pattern = Pattern.Kraft, tags = "collage paper nature"),
         Kit("clean-white", "Clean white", Category.Minimal, Themes.Paper.copy(name = "White", background = 0xFFFFFFFF), listOf(PhotoStyle()), TitleSpec.Words(FontRole.Head, 120f),
-            caption = "{nn}", layouts = setOf("pairs", "grid", "trio", "solo", "seam", "strip", "hero", "column", "mosaic"), tags = "minimal simple white"),
+            caption = "{nn}", layouts = setOf("pairs", "grid", "trio", "solo", "seam", "strip", "hero", "column", "mosaic", "triptych", "rows", "bento", "inset"), tags = "minimal simple white"),
         Kit("soft-round", "Soft rounded", Category.Minimal, Themes.Lilac, listOf(PhotoStyle(cornerRadius = 44f)), TitleSpec.Sticker("titles/stack-title"),
-            listOf("shine/sparkle-holo"), layouts = setOf("pairs", "grid", "trio", "solo", "seam", "hero", "column", "mosaic"), tags = "rounded soft minimal"),
+            listOf("shine/sparkle-holo"), layouts = setOf("pairs", "grid", "trio", "solo", "seam", "hero", "column", "mosaic", "triptych", "bento", "inset"), tags = "rounded soft minimal"),
         Kit("scribbles", "Scribbles", Category.Scribbles, Themes.Paper.copy(name = "Notebook", background = 0xFFFFFFFF), listOf(preset("scribble"), PhotoStyle()), TitleSpec.Words(FontRole.Hand, 170f),
             listOf("scribbles/arrow", "scribbles/heart", "scribbles/sparkles", "scribbles/swirl", "scribbles/smile", "scribbles/star", "scribbles/underline"), caption = "{nn} ↓", tilt = 2f, pattern = Pattern.Grid, tags = "doodle hand drawn chalk"),
         Kit("screen-time", "Screen time", Category.Digital, Themes.Ocean, listOf(preset("phone-black"), preset("browser-light"), preset("player-light"), preset("message-blue"), preset("popup-light"), preset("camera-black")),
@@ -285,11 +326,11 @@ object TemplateKits {
         Kit("party", "Party time", Category.Celebrations, Themes.Sunset, listOf(preset("instax-white"), preset("square-cream")), TitleSpec.Sticker("titles/outline-title"),
             listOf("shine/star-gold", "shine/burst-gold", "shine/sparkles-gold", "diecut/cake", "diecut/music"), tilt = 6f, pattern = Pattern.Confetti, caption = "✶ {nn}", tags = "birthday party celebrate"),
         Kit("wedding", "Wedding day", Category.Weddings, Themes.Sand, listOf(PhotoStyle(frame = FrameKind.Arch), preset("lace-white"), PhotoStyle(frame = FrameKind.Oval)), TitleSpec.Sticker("titles/laurel-title"),
-            listOf("flowers/blossom", "flowers/leaf-sprig", "shine/heart-gold"), pattern = Pattern.Linen, layouts = setOf("solo", "pairs", "column", "trio", "hero", "seam"), tags = "wedding engagement elegant"),
+            listOf("flowers/blossom", "flowers/leaf-sprig", "shine/heart-gold"), pattern = Pattern.Linen, layouts = setOf("solo", "pairs", "column", "trio", "hero", "seam", "inset", "triptych"), tags = "wedding engagement elegant"),
         Kit("out-there", "Out there", Category.Outdoor, Themes.Forest, listOf(preset("deckle-white")), TitleSpec.Sticker("titles/stack-title"),
             listOf("marker/mountain", "marker/pine", "marker/sun", "marker/compass", "diecut/mushroom"), caption = "day {day}", pattern = Pattern.Paper, route = true, tags = "hiking camping nature outdoors"),
         Kit("editorial", "Editorial", Category.Fashion, Themes.Mono, listOf(PhotoStyle()), TitleSpec.Sticker("titles/magazine-title"),
-            listOf("phrases/lately", "labels/dymo-black"), caption = "{nn}", layouts = setOf("column", "solo", "trio", "hero", "grid", "mosaic"), tags = "fashion magazine vogue outfit"),
+            listOf("phrases/lately", "labels/dymo-black"), caption = "{nn}", layouts = setOf("column", "solo", "trio", "hero", "grid", "mosaic", "inset", "triptych", "bento"), tags = "fashion magazine vogue outfit"),
         Kit("beach-days", "Beach days", Category.Travel, Themes.Ocean, listOf(preset("wide-white"), preset("polaroid-white")), TitleSpec.Sticker("titles/script-line-title"),
             listOf("diecut/shell", "diecut/palm", "diecut/sun", "diecut/sunglasses", "diecut/icecream"), tape = "tape/stripes-teal", caption = "day {day}", tilt = 4f, pattern = Pattern.Waves, tags = "summer sea sand"),
         Kit("photo-dump", "Photo dump", Category.Recap, Themes.Citrus, listOf(preset("corners-white"), PhotoStyle(cornerRadius = 24f), preset("taped")), TitleSpec.Sticker("phrases/photo-dump", null, 0.9f),
@@ -299,18 +340,18 @@ object TemplateKits {
         Kit("notebook", "Notebook", Category.Stationery, Themes.Paper, listOf(preset("notebook-white")), TitleSpec.Words(FontRole.Hand, 160f),
             listOf("labels/sticky-yellow", "scrapbook/paperclip-red", "labels/typewriter-white", "scribbles/underline"), caption = "note {nn}", tilt = 2f, pattern = Pattern.Lines, tags = "school journal notes"),
         Kit("portraits", "Portraits", Category.Portraits, Themes.Blush, listOf(PhotoStyle(frame = FrameKind.Arch), PhotoStyle(frame = FrameKind.Oval)), TitleSpec.Sticker("titles/serif-script-title"),
-            listOf("shine/sparkle-gold"), layouts = setOf("solo", "pairs", "column", "trio", "seam"), tags = "portrait people face"),
+            listOf("shine/sparkle-gold"), layouts = setOf("solo", "pairs", "column", "trio", "seam", "inset", "triptych"), tags = "portrait people face"),
         Kit("love-notes", "Love notes", Category.Love, Themes.Blush, listOf(PhotoStyle(frame = FrameKind.Heart, shadow = 10f), preset("polaroid-pink")), TitleSpec.Sticker("titles/script-line-title"),
             listOf("beads/word-gold-love", "beads/word-white-xoxo", "shine/heart-rose", "scribbles/heart", "diecut/lips"), caption = "xo", tilt = 4f, pattern = Pattern.Stars, tags = "valentine couple love"),
         Kit("admit-one", "Admit one", Category.Bold, Themes.Retro, listOf(preset("ticket-cream"), preset("slide-white")), TitleSpec.Sticker("titles/boxed-title"),
             listOf("tickets/admit-cream", "stamps/rubber-approved-rect", "scribbles/star"), tilt = 3f, pattern = Pattern.Halftone, caption = "№ {nn}", tags = "retro vintage ticket"),
         Kit("grid-lines", "Grid lines", Category.Grids, Themes.Mono.copy(name = "Paper white", background = 0xFFF7F7F5), listOf(PhotoStyle()), TitleSpec.Words(FontRole.Head, 130f, bold = true),
-            layouts = setOf("grid", "trio", "mosaic", "solo"), caption = "{nn}", tags = "grid tidy clean"),
+            layouts = setOf("grid", "trio", "mosaic", "solo", "rows", "triptych", "bento"), caption = "{nn}", tags = "grid tidy clean"),
     )
 
     val generated: List<Template> by lazy {
         kits.flatMap { kit ->
-            layouts.filter { kit.layouts == null || it.id in kit.layouts }.map { lay ->
+            layouts.filter { (kit.layouts == null || it.id in kit.layouts) && (it.id !in tightGrids || kit.styles.all { s -> PhotoGeometry.naturalAspect(s.frame) == null }) }.map { lay ->
                 Template("k-${kit.id}-${lay.id}", "${kit.name} · ${lay.label}", kit.category, kit.theme, sample = lay.sample, tags = "${kit.tags} ${lay.label}", kit = kit.id, layout = lay.id) {
                     val scope = KitScope(this, kit)
                     lay.build(scope)

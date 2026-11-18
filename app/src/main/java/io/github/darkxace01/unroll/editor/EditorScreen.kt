@@ -105,6 +105,12 @@ fun EditorScreen(projectId: String, onBack: () -> Unit, onPreview: () -> Unit, o
         if (uri != null && target != null) vm.fillText(target, uri)
         filling = null
     }
+    var insetting by remember { mutableStateOf<String?>(null) }
+    val pickInset = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        val target = insetting
+        if (uri != null && target != null) vm.insetPhoto(target, uri)
+        insetting = null
+    }
 
     BackHandler(enabled = cropping != null || selected != null || drawing) {
         if (drawing) drawing = false else if (cropping != null) vm.crop(null) else vm.select(null)
@@ -172,6 +178,7 @@ fun EditorScreen(projectId: String, onBack: () -> Unit, onPreview: () -> Unit, o
                     Tool("Frame", ToolIcons.Frame) { sheet = Sheet.Frames }
                     Tool("Style", ToolIcons.Style) { sheet = Sheet.Style }
                     Tool("Replace", ToolIcons.Replace) { replacing = item.id; pickOne.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+                    Tool("Photo inside", ToolIcons.PhotoInside) { insetting = item.id; pickInset.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
                     Tool("Motion", ToolIcons.Motion) { sheet = Sheet.Motion }
                     Housekeeping(vm, item.id)
                 }

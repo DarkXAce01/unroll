@@ -66,7 +66,13 @@ A Grease Pencil Studio app. See [PLAN.md](PLAN.md) for the product plan and road
   one-tap fix that moves it the shortest way off the cut
 - Photos too small for their frame are flagged before they look soft on Instagram
 
+**Layouts**
+- Per-slide grids picked from little diagrams: 1, 2 across/down, 1 + 2, 2 + 1, 1 over 2, 2 over 1, 1 + 3, 1 + 4, 3 down, 3 across, 4, 6, 9, framed, and photo in photo
+- Photo in photo: select a photo, tap Photo inside, and a second photo sits in its corner as a bordered print
+- Template layouts include Three tall, Three wide, Bento and Photo in photo; template home shows seasonal collections (Holiday season, Summer trips, Valentine's...) picked by the month
+
 **Text**
+- 16 fonts, including Magazine (Playfair), Marker (Caveat), Poster (Bebas Neue), Retro script (Pacifico), Headline (DM Serif) and Typewriter (Courier Prime)
 - Fill any text with a photo: the picture shows through the letters (Text → Colour → Fill with a photo)
 
 **Out**
@@ -99,4 +105,4 @@ tip products (`tip_coffee`, `tip_lunch`, `tip_dinner`, consumable) in the Play C
 
 ## Licence
 
-GPL-3.0. Bundled fonts are under the SIL Open Font License.
+GPL-3.0. Bundled fonts are under the SIL Open Font License (licence files in `licenses/fonts/`). Word vectors for search: GloVe (Stanford NLP), Public Domain Dedication and License.

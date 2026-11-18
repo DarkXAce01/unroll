@@ -283,19 +283,24 @@ fun TemplateGallery(onPick: (Template) -> Unit, modifier: Modifier = Modifier, h
     var searching by rememberSaveable { mutableStateOf(false) }
     var category by rememberSaveable { mutableStateOf<Category?>(null) }
     var saved by rememberSaveable { mutableStateOf(false) }
+    var shelf by rememberSaveable { mutableStateOf<String?>(null) }
+    val collection = shelf?.let { io.github.darkxace01.unroll.model.Collections.byId(it) }
     val all = Templates.everything
     // Search once there are three letters; before that the feed stays as it is (no "nothing found" mid-word).
     val active = searching && query.trim().length >= 3
     val found = remember(query) { if (query.trim().length < 3) emptyList() else io.github.darkxace01.unroll.model.TemplateSearch.search(query, forYou) }
+    val inShelf = remember(collection) { collection?.let { io.github.darkxace01.unroll.model.Collections.templates(it, forYou) } ?: emptyList() }
     val shown = when {
         active -> found
+        collection != null -> inShelf
         saved -> all.filter { it.id in favs }
         category != null -> all.filter { it.category == category }
         else -> forYou
     }
-    val home = !saved && category == null && !active
+    val home = !saved && category == null && collection == null && !active
     val grid = rememberLazyStaggeredGridState()
-    LaunchedEffect(category, saved, query) { grid.scrollToItem(0) }
+    LaunchedEffect(category, saved, query, shelf) { grid.scrollToItem(0) }
+    if (collection != null) androidx.activity.compose.BackHandler { shelf = null }
 
     Column(modifier.then(if (height != Dp.Unspecified) Modifier.height(height) else Modifier)) {
         AnimatedContent(searching, label = "search") { s ->
@@ -310,14 +315,14 @@ fun TemplateGallery(onPick: (Template) -> Unit, modifier: Modifier = Modifier, h
                 }
                 item {
                     Box(Modifier.size(40.dp).clip(CircleShape).background(if (saved) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f))
-                        .clickable { saved = !saved; if (saved) category = null }, contentAlignment = Alignment.Center) {
+                        .clickable { saved = !saved; if (saved) { category = null; shelf = null } }, contentAlignment = Alignment.Center) {
                         Icon(if (saved) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, "Saved", Modifier.size(19.dp),
                             tint = if (saved) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurface)
                     }
                 }
-                item { Pill("For you", !saved && category == null) { category = null; saved = false } }
+                item { Pill("For you", !saved && category == null && collection == null) { category = null; saved = false; shelf = null } }
                 items(Category.entries.filter { c -> all.any { it.category == c } }) { c ->
-                    Pill(c.label, !saved && category == c) { category = c; saved = false }
+                    Pill(c.label, !saved && category == c) { category = c; saved = false; shelf = null }
                 }
             }
         }
@@ -331,8 +336,22 @@ fun TemplateGallery(onPick: (Template) -> Unit, modifier: Modifier = Modifier, h
                 item(span = StaggeredGridItemSpan.FullLine, key = "featured") {
                     FeaturedPager(featured, onPick)
                 }
+                item(span = StaggeredGridItemSpan.FullLine, key = "shelves") {
+                    val month = remember { java.util.Calendar.getInstance().get(java.util.Calendar.MONTH) + 1 }
+                    Shelves(io.github.darkxace01.unroll.model.Collections.forMonth(month)) { shelf = it.id }
+                }
                 item(span = StaggeredGridItemSpan.FullLine, key = "all") {
                     Text("All ${all.size} templates", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp, start = 2.dp))
+                }
+            } else if (collection != null) {
+                item(span = StaggeredGridItemSpan.FullLine, key = "shelf-head") {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f).padding(start = 2.dp)) {
+                            Text(collection.title, style = MaterialTheme.typography.titleLarge)
+                            Text("${collection.line} · ${shown.size} templates", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        IconButton(onClick = { shelf = null }) { Icon(Icons.Filled.Close, "Close collection") }
+                    }
                 }
             } else if (shown.isEmpty()) {
                 item(span = StaggeredGridItemSpan.FullLine) {
@@ -343,6 +362,43 @@ fun TemplateGallery(onPick: (Template) -> Unit, modifier: Modifier = Modifier, h
                 }
             }
             items(shown, key = { it.id }) { t -> TemplateCard(t) { onPick(t) } }
+        }
+    }
+}
+
+/** The season's collections: a short row of covers, each opening its shelf. */
+@Composable
+private fun Shelves(list: List<io.github.darkxace01.unroll.model.TemplateCollection>, onOpen: (io.github.darkxace01.unroll.model.TemplateCollection) -> Unit) {
+    Column(Modifier.padding(top = 8.dp)) {
+        Text("Collections", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 2.dp, bottom = 10.dp))
+        // Each shelf gets its own cover: the first of its templates no earlier shelf is showing.
+        val covers = remember(list) {
+            val used = HashSet<String>()
+            list.associate { c ->
+                val ts = io.github.darkxace01.unroll.model.Collections.templates(c, forYou)
+                val pick = ts.firstOrNull { it.kit !in used && it.id !in used } ?: ts.firstOrNull()
+                pick?.let { used += it.kit ?: it.id }
+                c.id to pick
+            }
+        }
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(list, key = { it.id }) { c ->
+                val cover = covers[c.id]
+                // Cover on top, words underneath: nothing printed over the template's own title.
+                Column(Modifier.size(width = 128.dp, height = 224.dp).clickable { onOpen(c) }) {
+                    Box(
+                        Modifier.size(width = 128.dp, height = 160.dp).shadow(3.dp, RoundedCornerShape(14.dp)).clip(RoundedCornerShape(14.dp))
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f)),
+                    ) {
+                        if (cover != null) {
+                            val i = Previews.cover(cover)
+                            SlideImage(cover, cover.theme, cover.ratio, i, i + 1, Modifier.fillMaxSize())
+                        }
+                    }
+                    Text(c.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, modifier = Modifier.padding(top = 8.dp, start = 2.dp))
+                    Text(c.line, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, modifier = Modifier.padding(start = 2.dp))
+                }
+            }
         }
     }
 }

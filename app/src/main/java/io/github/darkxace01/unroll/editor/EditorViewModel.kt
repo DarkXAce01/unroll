@@ -271,6 +271,25 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /** Applies a text change and resizes the box's height to the text. */
+    /**
+     * Photo in photo: [uri] goes inside the photo [parentId], at about 40% of its size in the lower
+     * corner, with a white border and a soft shadow so it reads as a print laid on top.
+     */
+    fun insetPhoto(parentId: String, uri: Uri) = viewModelScope.launch {
+        val ph = read(listOf(uri)).firstOrNull() ?: return@launch
+        val p = _project.value ?: return@launch
+        val parent = p.item(parentId) as? PhotoItem ?: return@launch
+        val pf = parent.frame
+        val (w, h) = PhotoGeometry.fit(ph.aspect, pf.w * 0.42f, pf.h * 0.42f)
+        val f = io.github.darkxace01.unroll.model.Frame(pf.cx + pf.w * 0.5f - w / 2 - pf.w * 0.06f, pf.cy + pf.h * 0.5f - h / 2 - pf.h * 0.06f, w, h, pf.rotation + 3f)
+        val style = io.github.darkxace01.unroll.model.PhotoStyle(borderWidth = maxOf(10f, w * 0.03f), borderColor = 0xFFFFFFFF, shadow = 18f)
+        val item = PhotoItem(newId(), f, ph.uri, ph.w, ph.h, style = style, faces = ph.faces, takenAt = ph.takenAt, lat = ph.lat, lng = ph.lng)
+        val at = p.items.indexOfFirst { it.id == parentId }
+        commit(p.copy(items = p.items.toMutableList().apply { add(at + 1, item) }))
+        select(item.id)
+        lookForFaces(ph.uri)
+    }
+
     /** Fills a text's letters with a photo. Big, heavy words show it best, so it nudges them that way. */
     fun fillText(id: String, uri: Uri) = viewModelScope.launch {
         val ph = read(listOf(uri)).firstOrNull() ?: return@launch

@@ -17,6 +17,14 @@ enum class Grid(val label: String, val cells: List<NormRect>) {
     Four("4", listOf(NormRect(0f, 0f, .5f, .5f), NormRect(.5f, 0f, 1f, .5f), NormRect(0f, .5f, .5f, 1f), NormRect(.5f, .5f, 1f, 1f))),
     Six("6", (0 until 6).map { i -> val c = i % 2; val r = i / 2; NormRect(c * .5f, r / 3f, (c + 1) * .5f, (r + 1) / 3f) }),
     Framed("Framed", listOf(NormRect(.06f, .06f, .94f, .8f))),
+    ThreeCols("3 across", listOf(NormRect(0f, 0f, 1f / 3, 1f), NormRect(1f / 3, 0f, 2f / 3, 1f), NormRect(2f / 3, 0f, 1f, 1f))),
+    BigRight("2 + 1", listOf(NormRect(0f, 0f, .4f, .5f), NormRect(0f, .5f, .4f, 1f), NormRect(.4f, 0f, 1f, 1f))),
+    BigBottom("2 over 1", listOf(NormRect(0f, 0f, .5f, .4f), NormRect(.5f, 0f, 1f, .4f), NormRect(0f, .4f, 1f, 1f))),
+    Bento("1 + 3", listOf(NormRect(0f, 0f, .62f, 1f), NormRect(.62f, 0f, 1f, 1f / 3), NormRect(.62f, 1f / 3, 1f, 2f / 3), NormRect(.62f, 2f / 3, 1f, 1f))),
+    BigFour("1 + 4", listOf(NormRect(0f, 0f, 1f, .55f), NormRect(0f, .55f, .5f, .775f), NormRect(.5f, .55f, 1f, .775f), NormRect(0f, .775f, .5f, 1f), NormRect(.5f, .775f, 1f, 1f))),
+    Nine("9", (0 until 9).map { i -> val c = i % 3; val r = i / 3; NormRect(c / 3f, r / 3f, (c + 1) / 3f, (r + 1) / 3f) }),
+    /** Photo in photo: one photo fills the slide, a second sits inside its corner. */
+    Inset("Photo in photo", listOf(NormRect(0f, 0f, 1f, 1f), NormRect(.5f, .54f, .92f, .94f))),
 }
 
 object Layouts {

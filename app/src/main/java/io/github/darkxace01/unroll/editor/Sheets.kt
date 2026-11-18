@@ -1,5 +1,12 @@
 package io.github.darkxace01.unroll.editor
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -75,7 +82,7 @@ fun LayoutSheet(
     onMove: (Int, Int) -> Unit,
 ) = SheetBody {
     SectionLabel("Arrange all photos")
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         AssistChip(onClick = { onArrange(Arrange.Auto, false) }, label = { Text("Seamless") })
         AssistChip(onClick = { onArrange(Arrange.Auto, true) }, label = { Text("Shuffle") })
         AssistChip(onClick = { onArrange(Arrange.OnePerSlide, false) }, label = { Text("One per slide") })
@@ -87,7 +94,9 @@ fun LayoutSheet(
     SliderRow("Between photos", gap, 0f..120f, { gap = it }, { onSpacing(margin, gap) }) { "${it.toInt()}" }
 
     SectionLabel("Slide ${slide + 1}: grid")
-    ChipRow(Grid.entries, null, { it.label }, onGrid)
+    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        items(Grid.entries.size) { i -> GridThumb(Grid.entries[i], p.ratio) { onGrid(Grid.entries[i]) } }
+    }
 
     SectionLabel("Shape")
     ChipRow(Ratio.entries, p.ratio, { it.label }, onRatio)
@@ -101,6 +110,30 @@ fun LayoutSheet(
         TextButton(onClick = { onMove(slide, slide - 1) }, enabled = slide > 0) { Text("Move left") }
         TextButton(onClick = { onMove(slide, slide + 1) }, enabled = slide < p.slides - 1) { Text("Move right") }
         TextButton(onClick = { onInsert(-1) }, enabled = p.slides < MAX_SLIDES) { Text("Add at start") }
+    }
+}
+
+/** A grid drawn as its cells, with its name under it. */
+@Composable
+private fun GridThumb(g: Grid, ratio: Ratio, onClick: () -> Unit) {
+    val ink = MaterialTheme.colorScheme.onSurface
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp)).clickable(onClick = onClick).padding(4.dp)) {
+        androidx.compose.foundation.Canvas(
+            Modifier.height(64.dp).aspectRatio(ratio.slideW.toFloat() / ratio.slideH)
+                .clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp)).background(ink.copy(alpha = 0.06f)),
+        ) {
+            val pad = 4.dp.toPx(); val gap = 2.5.dp.toPx()
+            val w = size.width - pad * 2; val h = size.height - pad * 2
+            g.cells.forEachIndexed { i, c ->
+                val l = pad + c.left * w + if (c.left > 0f) gap / 2 else 0f
+                val t = pad + c.top * h + if (c.top > 0f) gap / 2 else 0f
+                val r = pad + c.right * w - if (c.right < 1f) gap / 2 else 0f
+                val b = pad + c.bottom * h - if (c.bottom < 1f) gap / 2 else 0f
+                if (i > 0 && g == Grid.Inset) drawRoundRect(androidx.compose.ui.graphics.Color.White, androidx.compose.ui.geometry.Offset(l - 2, t - 2), androidx.compose.ui.geometry.Size(r - l + 4, b - t + 4), androidx.compose.ui.geometry.CornerRadius(3f))
+                drawRoundRect(ink.copy(alpha = if (i == 0) 0.32f else 0.22f + 0.05f * (i % 3)), androidx.compose.ui.geometry.Offset(l, t), androidx.compose.ui.geometry.Size(r - l, b - t), androidx.compose.ui.geometry.CornerRadius(3f))
+            }
+        }
+        Text(g.label, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
     }
 }
 
@@ -185,6 +218,12 @@ private val fontFamilies = mapOf(
     FontKey.Hand to FontFamily(Font(R.font.reenie_beanie)),
     FontKey.Pixel to FontFamily(Font(R.font.vt323)),
     FontKey.Grotesk to FontFamily(Font(R.font.bricolage)),
+    FontKey.Magazine to FontFamily(Font(R.font.playfair)),
+    FontKey.Marker to FontFamily(Font(R.font.caveat)),
+    FontKey.Poster to FontFamily(Font(R.font.bebas_neue)),
+    FontKey.Retro to FontFamily(Font(R.font.pacifico)),
+    FontKey.Headline to FontFamily(Font(R.font.dm_serif_display)),
+    FontKey.Typewriter to FontFamily(Font(R.font.courier_prime)),
 )
 
 @Composable

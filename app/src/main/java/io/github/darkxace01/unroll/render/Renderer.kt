@@ -50,12 +50,14 @@ import kotlin.math.sin
 /** Typefaces for [FontKey]. Bundled fonts are all under the SIL Open Font License. */
 class Fonts(context: Context) {
     companion object {
-        fun variable(k: FontKey) = k == FontKey.Display || k == FontKey.Grotesk || k == FontKey.Condensed
+        fun variable(k: FontKey) = k == FontKey.Display || k == FontKey.Grotesk || k == FontKey.Condensed || k == FontKey.Magazine || k == FontKey.Marker
 
         fun weight(k: FontKey, bold: Boolean): String? = when (k) {
             FontKey.Display -> if (bold) "'wght' 800" else "'wght' 620"
             FontKey.Grotesk -> if (bold) "'wght' 760" else "'wght' 520"
             FontKey.Condensed -> if (bold) "'wght' 800" else "'wght' 600"
+            FontKey.Magazine -> if (bold) "'wght' 800" else "'wght' 500"
+            FontKey.Marker -> if (bold) "'wght' 700" else "'wght' 500"
             else -> null
         }
     }
@@ -76,6 +78,12 @@ class Fonts(context: Context) {
                 FontKey.Hand -> R.font.reenie_beanie
                 FontKey.Pixel -> R.font.vt323
                 FontKey.Grotesk -> R.font.bricolage
+                FontKey.Magazine -> R.font.playfair
+                FontKey.Marker -> R.font.caveat
+                FontKey.Poster -> R.font.bebas_neue
+                FontKey.Retro -> R.font.pacifico
+                FontKey.Headline -> R.font.dm_serif_display
+                FontKey.Typewriter -> R.font.courier_prime
             }
             runCatching { ResourcesCompat.getFont(app, res) }.getOrNull() ?: Typeface.DEFAULT
         }
