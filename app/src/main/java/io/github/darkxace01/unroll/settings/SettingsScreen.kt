@@ -74,13 +74,17 @@ fun SettingsScreen(onBack: () -> Unit) {
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/DarkXAce01/unroll")))
             }) { Text("Source code") }
             var credits by remember { mutableStateOf(false) }
-            TextButton(onClick = { credits = true }) { Text("Sample photo credits") }
+            TextButton(onClick = { credits = true }) { Text("Credits") }
             if (credits) androidx.compose.material3.AlertDialog(
                 onDismissRequest = { credits = false },
                 confirmButton = { TextButton(onClick = { credits = false }) { Text("Close") } },
-                title = { Text("Sample photos") },
+                title = { Text("Credits") },
                 text = {
                     androidx.compose.foundation.lazy.LazyColumn {
+                        item {
+                            Text("Template search understands words using GloVe word vectors by Jeffrey Pennington, Richard Socher and Christopher D. Manning (Stanford NLP), released under the Public Domain Dedication and License.",
+                                style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 14.dp))
+                        }
                         item {
                             Text("Template previews use these freely licensed photos from Wikimedia Commons. Tap one to see its source.",
                                 style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 10.dp))

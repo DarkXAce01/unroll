@@ -39,6 +39,14 @@ class UnrollApp : Application() {
         super.onCreate()
         io.github.darkxace01.unroll.render.SamplePhotos.init(assets)
         scope.launch { store.load() }
+        // Word meanings for template search (about 3 MB), read off the main thread.
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                io.github.darkxace01.unroll.model.TemplateSearch.vectors = io.github.darkxace01.unroll.model.WordVectors.read(
+                    assets.open("search/vocab.txt"), assets.open("search/vectors.bin"),
+                )
+            }
+        }
     }
 
     override fun onTrimMemory(level: Int) {

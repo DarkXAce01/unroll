@@ -7,16 +7,22 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/** The real packed word meanings from the app's assets. */
+val testVectors: io.github.darkxace01.unroll.model.WordVectors by lazy {
+    val dir = java.io.File("src/main/assets/search")
+    io.github.darkxace01.unroll.model.WordVectors.read(java.io.File(dir, "vocab.txt").inputStream(), java.io.File(dir, "vectors.bin").inputStream())
+}
+
 class TemplateSearchTest {
     private val all = Templates.everything
-    private fun s(q: String) = TemplateSearch.search(q, all)
+    private fun s(q: String) = TemplateSearch.search(q, all, testVectors)
     private fun top(q: String, n: Int = 8) = s(q).take(n)
 
     @Test fun friendsFindsFriendlyTemplates() {
         for (q in listOf("friends", "bestie", "squad", "girls trip", "my besties", "freinds", "frien")) {
             val r = top(q)
             assertTrue("$q found nothing", r.isNotEmpty())
-            val good = setOf(Category.Recap, Category.Celebrations, Category.Scribbles, Category.Instant, Category.Travel, Category.Digital, Category.Scrapbook)
+            val good = setOf(Category.Love, Category.Recap, Category.Celebrations, Category.Scribbles, Category.Instant, Category.Travel, Category.Digital, Category.Scrapbook)
             assertTrue("$q top: ${r.map { it.name }}", r.all { it.category in good })
         }
     }
@@ -45,7 +51,16 @@ class TemplateSearchTest {
     }
 
     @Test fun gibberishFindsNothing() {
-        for (q in listOf("asdfgh", "xqzv", "qwerty", "zzzz", "jkjkjk", "hgfdsa", "templates", "for my", "bla", "lol")) assertEquals(q, emptyList<Any>(), s(q))
+        for (q in listOf("asdfgh", "xqzv", "qwerty", "zzzz", "jkjkjk", "hgfdsa", "templates", "for my", "xyzq", "hjkl")) assertEquals(q, emptyList<Any>(), s(q))
+    }
+
+    @Test fun wordsNeverListedStillFindTheirLook() {
+        // None of these are in the hand-written concepts: their meaning comes from the word vectors.
+        assertEquals(Category.Celebrations, top("bachelorette", 1).single().category)
+        assertEquals(Category.Recap, top("roommates", 1).single().category)
+        assertEquals(Category.Outdoor, top("picnic", 1).single().category)
+        assertEquals(Category.Digital, top("anime", 1).single().category)
+        assertTrue(s("car").size <= 60)
     }
 
     @Test fun twoWordsPreferBoth() {
@@ -58,7 +73,7 @@ class TemplateSearchTest {
 class TemplateSearchPrint {
     @Test fun print() {
         org.junit.Assume.assumeTrue(System.getProperty("unroll.templateSheets") == "true")
-        for (q in listOf("friends", "girls trip", "bday", "couple", "graduation", "dog", "coffee", "summer", "christmas", "concert", "family", "aesthetic", "business", "freinds", "bla", "lol"))
-            println("$q -> " + TemplateSearch.search(q, Templates.everything).take(6).joinToString { it.name } + "  (" + TemplateSearch.search(q, Templates.everything).size + ")")
+        for (q in listOf("friends", "roommates", "prom", "picnic", "bachelorette", "sleepover", "thanksgiving", "gym", "yoga", "fishing", "graduation", "skate", "ramadan", "brunch", "puppy", "grandma", "paris", "snowboarding", "football", "anime", "gaming", "car", "garden", "rain", "sunset", "wine", "lol", "qwerty", "asdfgh", "frie", "wedd", "par", "lov", "beac", "xyzq"))
+            println("$q -> " + TemplateSearch.search(q, Templates.everything, testVectors).take(6).joinToString { it.name } + "  (" + TemplateSearch.search(q, Templates.everything, testVectors).size + ")")
     }
 }

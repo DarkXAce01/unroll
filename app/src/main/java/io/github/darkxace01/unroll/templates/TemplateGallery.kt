@@ -284,14 +284,16 @@ fun TemplateGallery(onPick: (Template) -> Unit, modifier: Modifier = Modifier, h
     var category by rememberSaveable { mutableStateOf<Category?>(null) }
     var saved by rememberSaveable { mutableStateOf(false) }
     val all = Templates.everything
-    val found = remember(query) { if (query.isBlank()) emptyList() else io.github.darkxace01.unroll.model.TemplateSearch.search(query, forYou) }
+    // Search once there are three letters; before that the feed stays as it is (no "nothing found" mid-word).
+    val active = searching && query.trim().length >= 3
+    val found = remember(query) { if (query.trim().length < 3) emptyList() else io.github.darkxace01.unroll.model.TemplateSearch.search(query, forYou) }
     val shown = when {
-        searching && query.isNotBlank() -> found
+        active -> found
         saved -> all.filter { it.id in favs }
         category != null -> all.filter { it.category == category }
         else -> forYou
     }
-    val home = !saved && category == null && !(searching && query.isNotBlank())
+    val home = !saved && category == null && !active
     val grid = rememberLazyStaggeredGridState()
     LaunchedEffect(category, saved, query) { grid.scrollToItem(0) }
 

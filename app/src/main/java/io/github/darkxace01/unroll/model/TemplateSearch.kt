@@ -21,6 +21,9 @@ object TemplateSearch {
     private val C = Category.entries.associateBy { it }
 
     val concepts: List<Concept> = listOf(
+        c("gym, workout, workouts, fitness, fit, training, sport, sports, football, soccer, basketball, tennis, running, run, marathon, race, yoga, pilates, cycling, team, match, game, athlete, progress, transformation",
+            mapOf(Category.Bold to 1f, Category.Recap to 0.6f, Category.Minimal to 0.55f, Category.Grids to 0.55f, Category.Editorial to 0.5f),
+            mapOf("admit-one" to 0.6f, "grid-lines" to 0.6f, "photo-dump" to 0.5f)),
         c("friends, friend, friendship, bestie, besties, bff, bffs, squad, crew, gang, homies, homie, buddies, buddy, mates, pals, pal, girls, boys, girlstrip, boystrip, group, hangout, hanging out, nightout, sleepover, reunion, together",
             mapOf(Category.Recap to 1f, Category.Celebrations to 0.85f, Category.Scribbles to 0.8f, Category.Instant to 0.75f, Category.Digital to 0.6f, Category.Scrapbook to 0.6f, Category.Film to 0.4f),
             mapOf("photo-dump" to 1f, "party" to 0.85f, "scribbles" to 0.8f, "instant-pastel" to 0.75f, "screen-time" to 0.6f)),
@@ -29,12 +32,12 @@ object TemplateSearch {
             mapOf("love-notes" to 1f, "instant-pastel" to 0.6f, "wedding" to 0.65f)),
         c("wedding, weddings, bride, groom, bridal, engaged, engagement, marriage, married, proposal, propose, honeymoon, ceremony, vows, bridesmaid, reception",
             mapOf(Category.Weddings to 1f, Category.Love to 0.6f, Category.Editorial to 0.3f), mapOf("wedding" to 1f, "love-notes" to 0.5f)),
-        c("birthday, bday, party, parties, celebrate, celebration, cake, turning, graduation, grad, newyear, nye, christmas, xmas, holidays, halloween, eid, diwali, festive, anniversary, congrats, babyshower",
+        c("birthday, bday, party, parties, celebrate, celebration, cake, turning, graduation, grad, newyear, nye, christmas, xmas, holidays, halloween, eid, diwali, festive, anniversary, congrats, babyshower, prom, homecoming, dance, formal, thanksgiving, easter, hanukkah, ramadan, kwanzaa, bachelorette, bachelor, housewarming, quinceanera, carnival, pride",
             mapOf(Category.Celebrations to 1f, Category.Recap to 0.45f, Category.Bold to 0.35f), mapOf("party" to 1f, "photo-dump" to 0.4f)),
         c("travel, travels, traveling, travelling, trip, trips, vacation, vacay, holiday, abroad, journey, roadtrip, flight, plane, airport, europe, asia, paris, italy, japan, city, citybreak, explore, exploring, wanderlust, backpacking, interrail, tour, itinerary, passport, abroad",
             mapOf(Category.Travel to 1f, Category.Stationery to 0.65f, Category.Story to 0.5f, Category.Outdoor to 0.45f, Category.Film to 0.3f),
             mapOf("polaroid-travel" to 1f, "postcards" to 0.85f, "stamps" to 0.8f, "beach-days" to 0.7f)),
-        c("beach, beaches, summer, sea, seaside, ocean, sand, island, tropical, pool, surf, surfing, swim, swimming, sunny, sun, coast, bikini, palm",
+        c("beach, beaches, summer, sea, seaside, ocean, sand, island, tropical, pool, surf, surfing, swim, swimming, sunny, sun, coast, bikini, palm, sunset, sunsets, sunrise, goldenhour",
             mapOf(Category.Travel to 0.6f, Category.Outdoor to 0.45f), mapOf("beach-days" to 1f, "polaroid-travel" to 0.45f, "postcards" to 0.4f)),
         c("hike, hiking, camping, camp, mountain, mountains, nature, forest, woods, outdoors, outdoor, adventure, trail, lake, park, nationalpark, ski, skiing, snow, winter, autumn, fall, garden, flowers, plants",
             mapOf(Category.Outdoor to 1f, Category.Paper to 0.55f, Category.Travel to 0.45f), mapOf("out-there" to 1f, "torn-journal" to 0.6f)),
@@ -72,7 +75,7 @@ object TemplateSearch {
             mapOf(Category.Celebrations to 0.7f, Category.Bold to 0.8f, Category.Film to 0.5f, Category.Recap to 0.5f), mapOf("admit-one" to 1f, "party" to 0.6f)),
         c("bold, loud, colorful, colourful, bright, fun, playful, vibrant, pop",
             mapOf(Category.Bold to 1f, Category.Celebrations to 0.6f, Category.Digital to 0.5f)),
-        c("phone, screenshot, screenshots, app, apps, chat, texts, tweet, meme, memes, online, digital",
+        c("phone, screenshot, screenshots, app, apps, chat, texts, tweet, meme, memes, online, digital, lol, lmao, funny, jokes, humor, gaming, games, gamer, videogames, anime, manga, cartoon, comics, internet",
             mapOf(Category.Digital to 1f), mapOf("screen-time" to 1f)),
         c("story, stories, reel, reels, vertical, tiktok, fullscreen",
             mapOf(Category.Story to 1f)),
@@ -114,7 +117,7 @@ object TemplateSearch {
     private val own = HashMap<String, Set<String>>()
 
     /** How well one query word fits one template, 0..1. */
-    private fun fit(t: Template, hits: List<Pair<Int, Float>>, word: String): Float {
+    private fun fit(t: Template, hits: Map<Int, Float>, word: String): Float {
         var best = 0f
         val words = own.getOrPut(t.id) { ownWords(t) }
         if (word in words) best = 1f
@@ -128,21 +131,51 @@ object TemplateSearch {
         return best
     }
 
+    /** Word meanings, loaded once at start; without them search falls back to the concept words alone. */
+    @Volatile var vectors: WordVectors? = null
+
+    /** Similarity below this is chance; at [SURE] or above a word means the same thing for search. */
+    private const val CHANCE = 0.42f
+    private const val SURE = 0.72f
+
     /** Which concepts a query word means, with how sure we are (typos and half-typed words count less). */
-    fun meaning(word: String): List<Pair<Int, Float>> {
-        lexicon[word]?.let { l -> return l.map { it to 1f } }
+    fun meaning(word: String, v: WordVectors? = vectors): Map<Int, Float> {
+        lexicon[word]?.let { l -> return l.associateWith { 1f } }
         val out = HashMap<Int, Float>()
-        for ((w, cs) in lexicon) {
-            val s = when {
-                word.length >= 4 && w.startsWith(word) -> 0.85f
-                word.length >= 4 && w.length >= 4 && close(word, w) -> 0.8f
-                // Plurals and endings: "weddings", "partying".
-                word.length >= 5 && word.startsWith(w) && w.length >= 4 && word.length - w.length <= 3 -> 0.85f
-                else -> 0f
+        fun add(c: Int, s: Float) { if (s > (out[c] ?: 0f)) out[c] = s }
+        val known = v != null && v.has(word)
+        if (known) {
+            // Real meaning: how close this word sits to each concept's own words.
+            concepts.forEachIndexed { ci, c ->
+                var best = 0f
+                for (cw in c.words) { val x = v!!.sim(word, cw); if (x > best) best = x }
+                if (best >= CHANCE) add(ci, (0.45f + 0.55f * (best - CHANCE) / (SURE - CHANCE)).coerceAtMost(0.97f))
             }
-            if (s > 0f) cs.forEach { out[it] = maxOf(out[it] ?: 0f, s) }
         }
-        return out.toList()
+        if (out.isEmpty() && !known) {
+            // Not a word we know: a typo of one ("freinds"), or an ending ("weddings").
+            for ((w, cs) in lexicon) {
+                val sc = when {
+                    word.length >= 4 && w.length >= 4 && close(word, w) -> 0.8f
+                    word.length >= 5 && word.startsWith(w) && w.length >= 4 && word.length - w.length <= 3 -> 0.85f
+                    else -> 0f
+                }
+                if (sc > 0f) cs.forEach { add(it, sc) }
+            }
+            if (out.isEmpty() && v != null && word.length >= 4) v.correct(word)?.let { fixed ->
+                meaning(fixed, v).forEach { (c, sc) -> add(c, sc * 0.9f) }
+            }
+        }
+        return out
+    }
+
+    /** The last word while it's still being typed: the word itself if it is one, plus likely endings. */
+    private fun typed(word: String, v: WordVectors?): Map<Int, Float> {
+        val out = HashMap(meaning(word, v))
+        if (out.isNotEmpty() && v != null && v.has(word)) return out
+        val ends = (v?.completions(word, 3) ?: emptyList()) + lexicon.keys.filter { it.length > word.length && it.startsWith(word) }
+        for (w in ends.distinct()) meaning(w, v).forEach { (c, sc) -> if (sc * 0.9f > (out[c] ?: 0f)) out[c] = sc * 0.9f }
+        return out
     }
 
     /** Edit distance at most 1 (2 for long words), with a swap of neighbours counting as one. */
@@ -170,8 +203,10 @@ object TemplateSearch {
      * Templates for [q], best first; empty when no word in it means anything here. A template must fit
      * every meaningful word a little, so "friends beach" prefers templates good for both.
      */
-    fun search(q: String, all: List<Template>): List<Template> {
+    fun search(q: String, all: List<Template>, v: WordVectors? = vectors): List<Template> {
         val raw = tokens(q)
+        // Still typing the last word (no space after it yet) and it's short of a word: complete it.
+        val typing = q.isNotEmpty() && !q.last().isWhitespace()
         // Two-word phrases first ("photo dump", "girls trip", "road trip").
         val words = mutableListOf<String>()
         var i = 0
@@ -181,13 +216,16 @@ object TemplateSearch {
         }
         val meaningful = words.filter { it !in stop }
         if (meaningful.isEmpty()) return emptyList()
-        val parsed = meaningful.map { w -> w to meaning(w) }
+        val last = words.lastOrNull()
+        val parsed = meaningful.map { w ->
+            w to (if (typing && w == last && w.length >= 3 && lexicon[w] == null && true) typed(w, v) else meaning(w, v))
+        }
         val scored = all.mapNotNull { t ->
             var total = 0f
             var matched = 0
             for ((w, hits) in parsed) {
                 val f = fit(t, hits, w)
-                if (f >= 0.35f) { total += f; matched++ }
+                if (f >= 0.5f) { total += f; matched++ }
             }
             if (matched == 0) null else t to total * matched / parsed.size
         }
@@ -197,7 +235,7 @@ object TemplateSearch {
         // Mix styles: each further template from the same kit counts a little less, so the first screen
         // shows several looks instead of six layouts of one.
         val seen = HashMap<String, Int>()
-        return scored.filter { it.second >= top * 0.45f }.sortedByDescending { it.second }
+        return scored.filter { it.second >= top * 0.62f }.sortedByDescending { it.second }.take(60)
             .map { (t, sc) -> val k = t.kit ?: t.id; val n = seen.merge(k, 1, Int::plus)!! - 1; t to sc * Math.pow(0.9, n.toDouble()).toFloat() }
             .sortedByDescending { it.second }.map { it.first }
     }
