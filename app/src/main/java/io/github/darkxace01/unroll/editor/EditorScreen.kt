@@ -99,6 +99,12 @@ fun EditorScreen(projectId: String, onBack: () -> Unit, onPreview: () -> Unit, o
         if (uri != null && target != null) vm.replacePhoto(target, uri)
         replacing = null
     }
+    var filling by remember { mutableStateOf<String?>(null) }
+    val pickFill = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        val target = filling
+        if (uri != null && target != null) vm.fillText(target, uri)
+        filling = null
+    }
 
     BackHandler(enabled = cropping != null || selected != null || drawing) {
         if (drawing) drawing = false else if (cropping != null) vm.crop(null) else vm.select(null)
@@ -238,7 +244,12 @@ fun EditorScreen(projectId: String, onBack: () -> Unit, onPreview: () -> Unit, o
                         pickOne.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     })
                 }
-                Sheet.Text -> (cur as? TextItem)?.let { TextSheet(it, p.theme, onLive = { n -> vm.updateText(n, live = true) }, onCommit = { n -> vm.updateText(n) }, onDone = vm::endGesture) }
+                Sheet.Text -> (cur as? TextItem)?.let {
+                    TextSheet(
+                        it, p.theme, onLive = { n -> vm.updateText(n, live = true) }, onCommit = { n -> vm.updateText(n) }, onDone = vm::endGesture,
+                        onPickFill = { filling = it.id; pickFill.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                    )
+                }
                 Sheet.Stickers -> StickerLibrarySheet(p, onSticker = { d -> vm.addSticker(slide(), d); sheet = null }, onShape = { k -> vm.addShape(slide(), k); sheet = Sheet.Shape })
                 Sheet.Sticker -> (cur as? io.github.darkxace01.unroll.model.StickerItem)?.let {
                     StickerItemSheet(it, p, onCommit = { n -> vm.updateItem(n) }, onLive = { n -> vm.previewItem(n) }, onDone = vm::endGesture)

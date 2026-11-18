@@ -271,6 +271,13 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /** Applies a text change and resizes the box's height to the text. */
+    /** Fills a text's letters with a photo. Big, heavy words show it best, so it nudges them that way. */
+    fun fillText(id: String, uri: Uri) = viewModelScope.launch {
+        val ph = read(listOf(uri)).firstOrNull() ?: return@launch
+        val t = _project.value?.item(id) as? TextItem ?: return@launch
+        updateText(t.copy(fill = ph.uri, bold = true, size = maxOf(t.size, 140f), outlineWidth = 0f, pillColor = null, pillRole = null))
+    }
+
     fun updateText(t: TextItem, live: Boolean = false) {
         val h = app.renderer.textHeight(t, _project.value)
         val fitted = t.copy(frame = t.frame.copy(h = h))

@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import io.github.darkxace01.unroll.app
 import io.github.darkxace01.unroll.model.PhotoItem
 import io.github.darkxace01.unroll.model.Project
+import io.github.darkxace01.unroll.model.photoUris
 import io.github.darkxace01.unroll.model.ScrollPlan
 import io.github.darkxace01.unroll.model.Timeline
 
@@ -32,7 +33,7 @@ fun ScrollPlayer(p: Project, modifier: Modifier = Modifier) {
     val plan = remember(p.slides) { ScrollPlan(p.slides) }
     var t by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(p.id) {
-        for (u in p.items.filterIsInstance<PhotoItem>().filterNot { it.isEmpty }.map { it.uri }.distinct()) app.photos.load(u, 1600)?.let { bitmaps[u] = it }
+        for (u in p.photoUris()) app.photos.load(u, 1600)?.let { bitmaps[u] = it }
     }
     LaunchedEffect(plan) {
         val start = withFrameNanos { it }

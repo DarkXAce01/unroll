@@ -36,6 +36,7 @@ import io.github.darkxace01.unroll.model.PhotoGeometry
 import io.github.darkxace01.unroll.model.PhotoItem
 import io.github.darkxace01.unroll.model.Point
 import io.github.darkxace01.unroll.model.Project
+import io.github.darkxace01.unroll.model.photoUris
 import io.github.darkxace01.unroll.model.RouteItem
 import io.github.darkxace01.unroll.model.RouteMath
 import io.github.darkxace01.unroll.model.Seams
@@ -106,7 +107,7 @@ fun CanvasView(
     var ink by remember { mutableStateOf<List<Point>>(emptyList()) }
 
     // Screen-sized copies of each photo; full size is only for export.
-    val uris = project.items.filterIsInstance<PhotoItem>().filterNot { it.isEmpty }.map { it.uri }.distinct()
+    val uris = project.photoUris()
     LaunchedEffect(uris) {
         for (u in uris) if (u !in bitmaps) app.photos.load(u, 1600)?.let { bitmaps[u] = it }
     }

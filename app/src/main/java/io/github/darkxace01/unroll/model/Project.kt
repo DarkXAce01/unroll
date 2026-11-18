@@ -214,9 +214,15 @@ data class TextItem(
     val fontRole: FontRole? = null,
     val pillRole: ColorRole? = null,
     override val anim: Anim? = null,
+    /** A photo showing through the letters (its URI), or null for a plain colour. */
+    val fill: String? = null,
 ) : Item {
     override fun withFrame(f: Frame) = copy(frame = f)
 }
+
+/** Every photo a project shows: its photos plus any filling text. */
+fun Project.photoUris(): List<String> =
+    (items.filterIsInstance<PhotoItem>().filterNot { it.isEmpty }.map { it.uri } + items.filterIsInstance<TextItem>().mapNotNull { it.fill }).distinct()
 
 @Serializable
 @SerialName("shape")

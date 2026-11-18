@@ -102,6 +102,10 @@ class VideoExporter(private val context: Context, private val photos: Photos, pr
         for (ph in p.items.filterIsInstance<PhotoItem>().filterNot { it.isEmpty }) {
             if (ph.uri !in out) out[ph.uri] = photos.load(ph.uri, exporter.neededSide(ph).coerceAtMost(1440), useCache = false)
         }
+        for (t in p.items.filterIsInstance<io.github.darkxace01.unroll.model.TextItem>()) {
+            val u = t.fill ?: continue
+            if (u !in out) out[u] = photos.load(u, exporter.fillSide(t).coerceAtMost(1440), useCache = false)
+        }
         return out
     }
 

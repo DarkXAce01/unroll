@@ -35,6 +35,13 @@ class Exporter(private val context: Context, private val photos: Photos, private
         return ceil(maxOf(item.srcW, item.srcH) * k).toInt().coerceAtLeast(64)
     }
 
+    /** How big a photo filling text must be decoded: it covers the text box. */
+    fun fillSide(t: io.github.darkxace01.unroll.model.TextItem) = (maxOf(t.frame.w, t.frame.h) * 1.4f).toInt().coerceIn(256, 2400)
+
+    /** Photos filling text on [slide] (canvas area), keyed by URI with the size to load. */
+    private fun fills(p: Project, slide: io.github.darkxace01.unroll.model.Box?) = p.items.filterIsInstance<io.github.darkxace01.unroll.model.TextItem>()
+        .filter { it.fill != null && (slide == null || it.frame.bounds().overlaps(slide)) }
+
     /** One slide as a bitmap at full size (or scaled by [scale] for thumbnails and the preview). */
     suspend fun renderSlide(p: Project, index: Int, scale: Float = 1f, cache: MutableMap<String, Bitmap?> = HashMap()): Bitmap = withContext(Dispatchers.Default) {
         val slide = Seams.slide(p, index)
@@ -43,11 +50,19 @@ class Exporter(private val context: Context, private val photos: Photos, private
             val key = "${ph.uri}@${neededScaled(ph, scale)}"
             if (key !in cache) cache[key] = photos.load(ph.uri, neededScaled(ph, scale), useCache = scale < 1f)
         }
+        val texts = fills(p, slide)
+        for (t in texts) {
+            val key = "${t.fill}@fill${(fillSide(t) * scale).toInt()}"
+            if (key !in cache) cache[key] = photos.load(t.fill!!, (fillSide(t) * scale).toInt().coerceAtLeast(64), useCache = scale < 1f)
+        }
         val bmp = Bitmap.createBitmap((p.slideW * scale).toInt(), (p.slideH * scale).toInt(), Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         c.scale(scale, scale)
         c.translate(-slide.left, 0f)
-        renderer.draw(c, p, { uri -> onSlide.firstOrNull { it.uri == uri }?.let { cache["$uri@${neededScaled(it, scale)}"] } })
+        renderer.draw(c, p, { uri ->
+            onSlide.firstOrNull { it.uri == uri }?.let { cache["$uri@${neededScaled(it, scale)}"] }
+                ?: texts.firstOrNull { it.fill == uri }?.let { cache["$uri@fill${(fillSide(it) * scale).toInt()}"] }
+        })
         bmp
     }
 
@@ -64,6 +79,7 @@ class Exporter(private val context: Context, private val photos: Photos, private
         for (ph in p.items.filterIsInstance<PhotoItem>().filterNot { it.isEmpty }) {
             if (ph.uri !in loaded) loaded[ph.uri] = photos.load(ph.uri, (neededSide(ph) * scale).toInt().coerceAtLeast(64), useCache = false)
         }
+        for (t in fills(p, null)) if (t.fill!! !in loaded) loaded[t.fill] = photos.load(t.fill, (fillSide(t) * scale).toInt().coerceAtLeast(64), useCache = false)
         renderer.draw(c, p, { loaded[it] })
         bmp
     }
@@ -81,7 +97,8 @@ class Exporter(private val context: Context, private val photos: Photos, private
             out += save(bmp, "${fileBase(p)} ${(i + 1).toString().padStart(2, '0')}${if (scale > 1f) " ${scale.toInt()}x" else ""}", folder(p))
             bmp.recycle()
             val ahead = Seams.slide(p, i + 1)
-            val keep = p.items.filterIsInstance<PhotoItem>().filter { it.frame.bounds().right > ahead.left }.map { "${it.uri}@${neededScaled(it, scale)}" }.toSet()
+            val keep = p.items.filterIsInstance<PhotoItem>().filter { it.frame.bounds().right > ahead.left }.map { "${it.uri}@${neededScaled(it, scale)}" }.toSet() +
+                fills(p, null).filter { it.frame.bounds().right > ahead.left }.map { "${it.fill}@fill${(fillSide(it) * scale).toInt()}" }
             cache.keys.retainAll(keep)
         }
         onProgress(indices.size, indices.size)

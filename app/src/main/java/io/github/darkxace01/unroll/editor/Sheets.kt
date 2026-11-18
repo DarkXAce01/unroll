@@ -188,7 +188,7 @@ private val fontFamilies = mapOf(
 )
 
 @Composable
-fun TextSheet(t: TextItem, theme: io.github.darkxace01.unroll.model.Theme, onLive: (TextItem) -> Unit, onCommit: (TextItem) -> Unit, onDone: () -> Unit) = SheetBody {
+fun TextSheet(t: TextItem, theme: io.github.darkxace01.unroll.model.Theme, onLive: (TextItem) -> Unit, onCommit: (TextItem) -> Unit, onDone: () -> Unit, onPickFill: () -> Unit = {}) = SheetBody {
     OutlinedTextField(
         value = t.text,
         onValueChange = { onLive(t.copy(text = it)) },
@@ -212,8 +212,14 @@ fun TextSheet(t: TextItem, theme: io.github.darkxace01.unroll.model.Theme, onLiv
         }
     }
     SectionLabel("Colour")
-    RoleRow(theme, t.colorRole) { onCommit(t.copy(colorRole = it)) }
-    ColorRow(if (t.colorRole == null) t.color else null, { onCommit(t.copy(color = it, colorRole = null)) }, Modifier.padding(top = 8.dp))
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+        FilterChip(selected = t.fill != null, onClick = onPickFill, label = { Text(if (t.fill != null) "Photo inside ✓  change" else "Fill with a photo") })
+        if (t.fill != null) TextButton(onClick = { onCommit(t.copy(fill = null)) }) { Text("Plain colour") }
+    }
+    if (t.fill == null) {
+        RoleRow(theme, t.colorRole) { onCommit(t.copy(colorRole = it)) }
+        ColorRow(if (t.colorRole == null) t.color else null, { onCommit(t.copy(color = it, colorRole = null)) }, Modifier.padding(top = 8.dp))
+    }
     SectionLabel("Style")
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         ChipRow(TextAlign.entries, t.align, { it.name.replace("Start", "Left").replace("End", "Right") }, { onCommit(t.copy(align = it)) })

@@ -132,7 +132,7 @@ class Renderer(val fonts: Fonts) {
             }
             when (item) {
                 is PhotoItem -> drawPhoto(c, p, item, if (item.isEmpty) null else bitmap(item.uri), placeholders, if (!samples) -1 else if (sampleOrder != null && sampleOrder.isNotEmpty()) sampleOrder[slot++ % sampleOrder.size] else slot++)
-                is TextItem -> drawText(c, p, item, l.reveal)
+                is TextItem -> drawText(c, p, item, l.reveal, item.fill?.let(bitmap))
                 is ShapeItem -> drawShape(c, p, item)
                 is StickerItem -> drawSticker(c, p, item)
                 is RouteItem -> drawRoute(c, p, item, l.reveal)
@@ -310,7 +310,7 @@ class Renderer(val fonts: Fonts) {
 
     fun pad(t: TextItem) = if (t.pillColor != null || t.pillRole != null) t.size * 0.45f else t.size * 0.1f
 
-    fun drawText(c: Canvas, p: Project, t: TextItem, reveal: Float = 1f) {
+    fun drawText(c: Canvas, p: Project, t: TextItem, reveal: Float = 1f, fill: Bitmap? = null) {
         val f = t.frame
         inFrame(c, f) {
             val pill = t.pillRole?.let { p.theme.color(it) } ?: t.pillColor
@@ -334,7 +334,17 @@ class Renderer(val fonts: Fonts) {
                 textPaint.color = p.color(t.color, t.colorRole).toInt()
             }
             if (t.shadow > 0f) textPaint.setShadowLayer(t.shadow, 0f, t.shadow / 3, 0x88000000.toInt())
+            if (fill != null) {
+                // The photo covers the whole text box (centre crop) and shows only through the letters.
+                val k = maxOf(f.w / fill.width, f.h / fill.height)
+                val m = android.graphics.Matrix()
+                m.setScale(k, k)
+                m.postTranslate(f.w / 2 - pad - fill.width * k / 2, full.height / 2f - fill.height * k / 2)
+                textPaint.shader = android.graphics.BitmapShader(fill, android.graphics.Shader.TileMode.CLAMP, android.graphics.Shader.TileMode.CLAMP).apply { setLocalMatrix(m) }
+                textPaint.color = 0xFF000000.toInt()
+            }
             shown.draw(c)
+            textPaint.shader = null
             textPaint.clearShadowLayer()
         }
     }

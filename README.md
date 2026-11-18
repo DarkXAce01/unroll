@@ -66,6 +66,9 @@ A Grease Pencil Studio app. See [PLAN.md](PLAN.md) for the product plan and road
   one-tap fix that moves it the shortest way off the cut
 - Photos too small for their frame are flagged before they look soft on Instagram
 
+**Text**
+- Fill any text with a photo: the picture shows through the letters (Text → Colour → Fill with a photo)
+
 **Out**
 - Preview: swipe it like a feed post, with the profile-grid tile
 - Export page shows the post the way Instagram will (swipe it), then one tap sends it
