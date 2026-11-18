@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -77,12 +78,15 @@ fun HomeScreen(onOpen: (String) -> Unit, onSettings: () -> Unit, onTemplates: ()
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 20.dp),
         )
-        Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !busy) {
-                Text(if (busy) "Laying out…" else "New carousel")
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Button(onClick = { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !busy,
+                modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                Text(if (busy) "Laying out…" else "New carousel from photos")
             }
-            OutlinedButton(onClick = onTemplates) { Text("Templates") }
-            OutlinedButton(onClick = { scope.launch { onOpen(NewProject.blank(app).id) } }) { Text("Blank") }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(onClick = onTemplates, modifier = Modifier.weight(1f)) { Text("Templates", maxLines = 1) }
+                OutlinedButton(onClick = { scope.launch { onOpen(NewProject.blank(app).id) } }, modifier = Modifier.weight(1f)) { Text("Blank", maxLines = 1) }
+            }
         }
         if (projects.isEmpty()) {
             Text(

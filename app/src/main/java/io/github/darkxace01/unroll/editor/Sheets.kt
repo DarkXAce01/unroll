@@ -146,7 +146,7 @@ fun PhotoStyleSheet(item: PhotoItem, theme: io.github.darkxace01.unroll.model.Th
     val s = item.style
     SectionLabel("Mount")
     ChipRow(io.github.darkxace01.unroll.model.FrameKind.entries, s.frame, { it.label }, { onCommit(item.copy(style = s.copy(frame = it))) })
-    if (s.frame == io.github.darkxace01.unroll.model.FrameKind.Polaroid || s.frame == io.github.darkxace01.unroll.model.FrameKind.Stamp || s.frame == io.github.darkxace01.unroll.model.FrameKind.Film) {
+    if (io.github.darkxace01.unroll.model.PhotoGeometry.mounted(s.frame)) {
         SectionLabel("Mount colour")
         RoleRow(theme, s.mountRole) { onCommit(item.copy(style = s.copy(mountRole = it))) }
         ColorRow(if (s.mountRole == null) s.mountColor else null, { onCommit(item.copy(style = s.copy(mountColor = it, mountRole = null))) }, Modifier.padding(top = 8.dp))
@@ -233,14 +233,6 @@ fun TextSheet(t: TextItem, theme: io.github.darkxace01.unroll.model.Theme, onLiv
     SliderRow("Outline", t.outlineWidth, 0f..12f, { onLive(t.copy(outlineWidth = it)) }, onDone) { "${it.toInt()}" }
     if (t.outlineWidth > 0f) ColorRow(t.outlineColor, { onCommit(t.copy(outlineColor = it)) })
     SliderRow("Shadow", t.shadow, 0f..40f, { onLive(t.copy(shadow = it)) }, onDone) { "${it.toInt()}" }
-}
-
-@Composable
-fun StickerSheet(onPick: (ShapeKind) -> Unit) = SheetBody {
-    SectionLabel("Shapes & stickers")
-    LazyVerticalGrid(GridCells.Fixed(3), Modifier.heightIn(max = 300.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(ShapeKind.entries) { k -> OutlinedButton(onClick = { onPick(k) }) { Text(k.label) } }
-    }
 }
 
 @Composable

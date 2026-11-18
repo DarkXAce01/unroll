@@ -238,6 +238,25 @@ enum class ShapeKind(val label: String) {
     Sun("Sun"), Sparkle("Sparkle"), Wave("Wave"), Ticket("Ticket"), Compass("Compass"), Burst("Burst"), Blob("Blob"), Dots("Dots"),
 }
 
+/**
+ * A sticker from the library ([Stickers]), drawn by the app. [text] replaces the sticker's own words
+ * (a postmark's town, a label); [color]/[colorRole] tint it where the sticker takes a colour.
+ */
+@Serializable
+@SerialName("sticker")
+data class StickerItem(
+    override val id: String,
+    override val frame: Frame,
+    val sticker: String,
+    val text: String? = null,
+    val color: Long? = null,
+    val colorRole: ColorRole? = null,
+    val flip: Boolean = false,
+    override val anim: Anim? = null,
+) : Item {
+    override fun withFrame(f: Frame) = copy(frame = f)
+}
+
 @Serializable
 enum class Dash(val label: String) { Solid("Solid"), Dashed("Dashed"), Dotted("Dotted") }
 
@@ -305,7 +324,16 @@ data class Background(
     val angle: Float = 0f,
     val colorRole: ColorRole? = null,
     val color2Role: ColorRole? = null,
+    /** A texture laid over the colour, running unbroken across every slide. */
+    val pattern: Pattern = Pattern.None,
 )
+
+/** Background textures, drawn by the app in the theme's muted colour. */
+@Serializable
+enum class Pattern(val label: String) {
+    None("None"), Paper("Paper grain"), Grid("Grid"), Dots("Dots"), Lines("Lined"), Stripes("Stripes"), Gingham("Gingham"),
+    Linen("Linen"), Kraft("Kraft"), Checks("Checks"), Waves("Waves"), Confetti("Confetti"), Stars("Stars"), Halftone("Halftone"),
+}
 
 @Serializable
 data class Project(
@@ -411,6 +439,7 @@ fun Item.withAnim(a: Anim?): Item = when (this) {
     is PhotoItem -> copy(anim = a)
     is TextItem -> copy(anim = a)
     is ShapeItem -> copy(anim = a)
+    is StickerItem -> copy(anim = a)
     is RouteItem -> copy(anim = a)
 }
 
@@ -419,5 +448,6 @@ fun Item.withId(id: String): Item = when (this) {
     is PhotoItem -> copy(id = id)
     is TextItem -> copy(id = id)
     is ShapeItem -> copy(id = id)
+    is StickerItem -> copy(id = id)
     is RouteItem -> copy(id = id)
 }

@@ -24,6 +24,7 @@ class UnrollApp : Application() {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     val prefs by lazy { Prefs(this) }
+    val favourites by lazy { io.github.darkxace01.unroll.data.Favourites(this) }
     val store by lazy { ProjectStore(File(filesDir, "projects")) }
     val photos by lazy { Photos(this) }
     val fonts by lazy { Fonts(this) }

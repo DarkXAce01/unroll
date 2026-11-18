@@ -18,10 +18,65 @@ object PhotoGeometry {
         val (l, t, r, b) = when (kind) {
             FrameKind.Polaroid -> listOf(0.055f * w, 0.055f * w, 0.055f * w, 0.2f * w)
             FrameKind.Film -> listOf(0.03f * w, 0.13f * h, 0.03f * w, 0.13f * h)
+            FrameKind.Negative -> listOf(0.025f * w, 0.15f * h, 0.025f * w, 0.15f * h)
             FrameKind.Stamp -> listOf(0.075f * m, 0.075f * m, 0.075f * m, 0.075f * m)
+            FrameKind.Instax -> listOf(0.075f * w, 0.08f * h, 0.075f * w, 0.2f * h)
+            FrameKind.Wide -> listOf(0.042f * w, 0.08f * h, 0.042f * w, 0.19f * h)
+            FrameKind.Square -> listOf(0.07f * w, 0.08f * h, 0.07f * w, 0.2f * h)
+            FrameKind.Slide -> listOf(0.17f * m, 0.17f * m, 0.17f * m, 0.17f * m)
+            FrameKind.Deckle -> listOf(0.065f * m, 0.065f * m, 0.065f * m, 0.065f * m)
+            FrameKind.Postcard, FrameKind.Corners -> listOf(0.045f * m, 0.045f * m, 0.045f * m, 0.045f * m)
+            FrameKind.Notebook -> listOf(0.15f * w, 0.09f * h, 0.08f * w, 0.24f * h)
+            FrameKind.Phone -> listOf(0.045f * w, 0.03f * h, 0.045f * w, 0.03f * h)
+            FrameKind.Camera -> listOf(0.06f * w, 0.13f * h, 0.32f * w, 0.13f * h)
+            FrameKind.Browser -> { val bar = minOf(h * 0.13f, w * 0.1f); listOf(0.012f * m, bar, 0.012f * m, 0.012f * m) }
+            FrameKind.Player -> { val art = minOf(w * 0.84f, h * 0.62f); listOf((w - art) / 2, (w - art) / 2, (w - art) / 2, h - (w - art) / 2 - art) }
+            FrameKind.Message -> listOf(0.03f * m, 0.03f * m, 0.03f * m, 0.03f * m + 0.07f * h)
+            FrameKind.Popup -> listOf(0.06f * w, 0.17f * h, 0.06f * w, 0.19f * h)
+            FrameKind.Lace -> listOf(0.11f * m, 0.11f * m, 0.11f * m, 0.11f * m)
+            FrameKind.Window -> listOf(0.07f * m, 0.07f * m, 0.07f * m, 0.07f * m)
+            FrameKind.Ticket -> listOf(0.045f * w, 0.1f * h, 0.3f * w, 0.1f * h)
             else -> listOf(0f, 0f, 0f, 0f)
         }
         return Box(-w / 2 + l, -h / 2 + t, w / 2 - r, h / 2 - b)
+    }
+
+    /** Frames drawn on a mount (paper, a device, a ticket) with the photo set inside; the rest clip the photo to a shape. */
+    fun mounted(kind: FrameKind) = kind in MOUNTED
+
+    private val MOUNTED = setOf(
+        FrameKind.Polaroid, FrameKind.Film, FrameKind.Negative, FrameKind.Stamp, FrameKind.Instax, FrameKind.Wide, FrameKind.Square,
+        FrameKind.Slide, FrameKind.Deckle, FrameKind.Postcard, FrameKind.Corners, FrameKind.Notebook, FrameKind.Phone, FrameKind.Camera,
+        FrameKind.Browser, FrameKind.Player, FrameKind.Message, FrameKind.Popup, FrameKind.Lace, FrameKind.Window, FrameKind.Ticket,
+    )
+
+    /** The shape a frame looks right at (width / height), or null when any shape works. */
+    fun naturalAspect(kind: FrameKind): Float? = when (kind) {
+        FrameKind.Polaroid -> 0.84f
+        FrameKind.Instax -> 0.63f
+        FrameKind.Wide -> 1.26f
+        FrameKind.Square -> 0.84f
+        FrameKind.Slide, FrameKind.Circle, FrameKind.Heart -> 1f
+        FrameKind.Negative -> 1.4f
+        FrameKind.Postcard -> 1.45f
+        FrameKind.Notebook -> 0.76f
+        FrameKind.Phone -> 0.49f
+        FrameKind.Camera -> 1.5f
+        FrameKind.Browser -> 1.2f
+        FrameKind.Player -> 0.66f
+        FrameKind.Popup -> 0.8f
+        FrameKind.Lace, FrameKind.Oval -> 0.78f
+        FrameKind.Ticket -> 2.1f
+        FrameKind.Stamp -> 0.82f
+        else -> null
+    }
+
+    /** The largest box of [aspect] centred in [box] (for fitting a frame of a set shape into a layout slot). */
+    fun fitInto(box: Box, aspect: Float?): Box {
+        if (aspect == null || box.width <= 0f || box.height <= 0f) return box
+        val ba = box.width / box.height
+        return if (ba > aspect) { val w = box.height * aspect; Box(box.cx - w / 2, box.top, box.cx + w / 2, box.bottom) }
+        else { val h = box.width / aspect; Box(box.left, box.cy - h / 2, box.right, box.cy + h / 2) }
     }
 
     /** The visible window of the source, in 0..1 of its width and height. */

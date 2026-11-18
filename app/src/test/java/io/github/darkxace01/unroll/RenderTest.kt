@@ -118,7 +118,9 @@ class RenderTest {
         val p = project.copy(slides = 1, items = listOf(item))
         val bmp = render(p, 1080, 1080, 0f)
         // Bottom strip of the polaroid is paper, the middle is the photo.
-        assertEquals(p.theme.paper.toInt(), bmp.getPixel(540, 540 + 350 - 40))
+        // Paper (with a faint sheen, so within a few levels).
+        val got = bmp.getPixel(540, 540 + 350 - 40); val want = p.theme.paper.toInt()
+        for (sh in listOf(16, 8, 0)) assertTrue("paper", kotlin.math.abs(((got shr sh) and 0xFF) - ((want shr sh) and 0xFF)) <= 10)
         assertTrue(bmp.getPixel(540, 400) != p.theme.paper.toInt())
     }
 

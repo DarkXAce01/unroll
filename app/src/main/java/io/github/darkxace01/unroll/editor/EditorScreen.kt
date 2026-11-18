@@ -54,7 +54,7 @@ import io.github.darkxace01.unroll.render.Palette
 import io.github.darkxace01.unroll.ui.maxPick
 import kotlinx.coroutines.launch
 
-private enum class Sheet { Layout, Background, Adjust, Style, Text, Stickers, Shape, Theme, Route, Motion, Templates, Lines }
+private enum class Sheet { Layout, Background, Adjust, Style, Text, Stickers, Shape, Theme, Route, Motion, Templates, Lines, Frames, AddFrame, Sticker }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -147,7 +147,8 @@ fun EditorScreen(projectId: String, onBack: () -> Unit, onPreview: () -> Unit, o
                 is PhotoItem -> {
                     Tool("Crop") { vm.crop(if (cropping == item.id) null else item.id) }
                     Tool("Adjust") { sheet = Sheet.Adjust }
-                    Tool("Frame") { sheet = Sheet.Style }
+                    Tool("Frame") { sheet = Sheet.Frames }
+                    Tool("Style") { sheet = Sheet.Style }
                     Tool("Replace") { replacing = item.id; pickOne.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
                     Tool("Motion") { sheet = Sheet.Motion }
                     Tool("Front") { vm.front(item.id) }
@@ -171,6 +172,15 @@ fun EditorScreen(projectId: String, onBack: () -> Unit, onPreview: () -> Unit, o
                     Tool("Copy") { vm.duplicate(item.id) }
                     Tool("Delete") { vm.delete(item.id) }
                 }
+                is io.github.darkxace01.unroll.model.StickerItem -> {
+                    Tool(if (io.github.darkxace01.unroll.model.Stickers.byId(item.sticker)?.editable == true) "Words & colour" else "Colour") { sheet = Sheet.Sticker }
+                    Tool("Flip") { vm.updateItem(item.copy(flip = !item.flip)) }
+                    Tool("Motion") { sheet = Sheet.Motion }
+                    Tool("Front") { vm.front(item.id) }
+                    Tool("Back") { vm.back(item.id) }
+                    Tool("Copy") { vm.duplicate(item.id) }
+                    Tool("Delete") { vm.delete(item.id) }
+                }
                 is io.github.darkxace01.unroll.model.RouteItem -> {
                     Tool("Style") { sheet = Sheet.Route }
                     Tool("Add bend") { vm.routeAddPoint(item.id) }
@@ -187,6 +197,7 @@ fun EditorScreen(projectId: String, onBack: () -> Unit, onPreview: () -> Unit, o
                     Tool("Photo here") { pickOnto = slide(); pickMany.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
                     Tool("Text") { vm.addText(slide()); sheet = Sheet.Text }
                     Tool("Stickers") { sheet = Sheet.Stickers }
+                    Tool("Frames") { sheet = Sheet.AddFrame }
                     Tool("Routes & lines") { sheet = Sheet.Lines }
                     Tool("Motion") { sheet = Sheet.Motion }
                     Tool("Layout") { sheet = Sheet.Layout }
@@ -197,7 +208,7 @@ fun EditorScreen(projectId: String, onBack: () -> Unit, onPreview: () -> Unit, o
     }
 
     if (sheet != null) {
-        val state = rememberModalBottomSheetState(skipPartiallyExpanded = sheet == Sheet.Text)
+        val state = rememberModalBottomSheetState(skipPartiallyExpanded = sheet in setOf(Sheet.Text, Sheet.Stickers, Sheet.Frames, Sheet.AddFrame, Sheet.Sticker, Sheet.Templates))
         ModalBottomSheet(onDismissRequest = { vm.endGesture(); sheet = null }, sheetState = state, scrimColor = Color.Transparent) {
             val cur = selected?.let { p.item(it) }
             when (sheet) {
@@ -214,6 +225,8 @@ fun EditorScreen(projectId: String, onBack: () -> Unit, onPreview: () -> Unit, o
                 Sheet.Background -> {
                     var colors by remember { mutableStateOf<List<Long>>(emptyList()) }
                     LaunchedEffect(p.id) { colors = Palette.fromPhotos(app, p) }
+                    Text("Texture", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 20.dp, top = 4.dp, bottom = 6.dp))
+                    Box(Modifier.padding(horizontal = 20.dp)) { PatternRow(p.background, p) { pt -> vm.background(p.background.copy(pattern = pt)) } }
                     BackgroundSheet(p.background, p.theme, colors, onPreview = vm::previewBackground, onDone = vm::background)
                 }
                 Sheet.Adjust -> (cur as? PhotoItem)?.let { AdjustSheet(it, { n -> vm.previewItem(n) }, vm::endGesture, { n -> vm.updateItem(n) }) }
@@ -224,7 +237,16 @@ fun EditorScreen(projectId: String, onBack: () -> Unit, onPreview: () -> Unit, o
                     })
                 }
                 Sheet.Text -> (cur as? TextItem)?.let { TextSheet(it, p.theme, onLive = { n -> vm.updateText(n, live = true) }, onCommit = { n -> vm.updateText(n) }, onDone = vm::endGesture) }
-                Sheet.Stickers -> StickerSheet { k -> vm.addShape(slide(), k); sheet = Sheet.Shape }
+                Sheet.Stickers -> StickerLibrarySheet(p, onSticker = { d -> vm.addSticker(slide(), d); sheet = null }, onShape = { k -> vm.addShape(slide(), k); sheet = Sheet.Shape })
+                Sheet.Sticker -> (cur as? io.github.darkxace01.unroll.model.StickerItem)?.let {
+                    StickerItemSheet(it, p, onCommit = { n -> vm.updateItem(n) }, onLive = { n -> vm.previewItem(n) }, onDone = vm::endGesture)
+                }
+                Sheet.Frames -> (cur as? PhotoItem)?.let { ph ->
+                    FrameLibrarySheet(p, ph.style, onPick = { f -> vm.framePhoto(ph, f) }) {
+                        TextButton(onClick = { sheet = Sheet.Style }) { Text("Border, shadow, corners…") }
+                    }
+                }
+                Sheet.AddFrame -> FrameLibrarySheet(p, null, onPick = { f -> vm.addFrame(slide(), f); sheet = null })
                 Sheet.Shape -> (cur as? ShapeItem)?.let { ShapeSheet(it, p.theme, { n -> vm.previewItem(n) }, vm::endGesture, { n -> vm.updateItem(n) }) }
                 Sheet.Theme -> ThemeSheet(p, onTheme = vm::theme, onColor = vm::themeColor, onFonts = vm::fonts)
                 Sheet.Route -> (cur as? io.github.darkxace01.unroll.model.RouteItem)?.let {

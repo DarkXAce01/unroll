@@ -6,7 +6,7 @@ Every feature is free. No trial, no watermark, no account.
 
 A Grease Pencil Studio app. See [PLAN.md](PLAN.md) for the product plan and roadmap.
 
-## Status: Phase 0–1 done, Phase 2 under way (templates, routes, motion, video)
+## Status: Phase 0–1 done, Phase 2 under way (templates, stickers, frames, routes, motion, video)
 
 **Make a carousel**
 - Pick photos (or share them to Unroll from the gallery) and get a seamless layout straight away: photos in
@@ -26,17 +26,26 @@ A Grease Pencil Studio app. See [PLAN.md](PLAN.md) for the product plan and road
 - Frames: rounded corners, border and colour, shadow, opacity, flip, replace the photo, fit to its shape
 - Text: 10 fonts, size, colour, alignment, bold, a label behind it, letter spacing, line height, outline,
   shadow
-- Shapes and stickers: box, circle, line, arrow, heart, star, map pin, plane, tape
+- **1,500+ stickers in 19 packs**, all drawn in code and tinted by the theme: travel and marker doodles,
+  die-cut stickers, title and subtitle styles, washi tape, stamps and postmarks, boarding passes and tickets,
+  labels, paper clips, patches, bead and ransom-note words, foil badges, flowers, 60 flags, speech bubbles.
+  Search by word; edit a sticker's words and colour, flip it; plus the plain shapes
+- **95 frames in 7 shelves**: instant (Polaroid, Instax, square, wide in 8 colours), film strip, negative,
+  slide mount, stamp, deckle, postcard, photo corners, notebook, taped, torn, phones, cameras, browser,
+  music player, message, pop-up, circle, arch, oval, heart, blob, window, ticket, lace, scribble.
+  Put one on a photo or add an empty framed slot
+- 14 background textures: paper grain, grid, dots, lined, stripes, gingham, linen, kraft, checks, waves,
+  confetti, stars, halftone
 - Background: a colour, a gradient, or colours picked from your own photos
 - Unlimited undo and redo. Projects save themselves
 
 **Templates & themes**
-- 16 templates (postcard route, film roll, scrapbook, stamps, boarding pass, magazine, story route, bold
-  type, torn paper, circles, arches and more). Each one stretches to any number of photos, or starts with
+- **227 templates** in 20 categories: 16 hand-made ones plus 22 style kits × 12 layouts. Browse shelves,
+  search, save favourites with a heart, swipe through every slide before using one, remix it in any of 12
+  colour themes and any of 4 formats. Each one stretches to any number of photos, or starts with
   empty slots you tap to fill. Title, dates and place come from the photos themselves
 - Everything a template makes stays editable. 12 themes: switch one and every colour and font that follows
   the theme changes with it, or change a single colour or the fonts yourself
-- Photo mounts: polaroid, film strip, stamp, circle, arch, torn paper
 
 **Routes**
 - A route through your photos in one tap, running across the slides so the swipe follows the trip

@@ -12,7 +12,12 @@ data class TripInfo(
     val days: Int = 0,
 )
 
-enum class Category(val label: String) { Travel("Travel"), Scrapbook("Scrapbook"), Minimal("Minimal"), Editorial("Editorial"), Bold("Bold"), Story("Stories") }
+enum class Category(val label: String) {
+    Travel("Travel"), Scrapbook("Scrapbook"), Recap("Photo dump"), Instant("Instant"), Film("Film"), Paper("Paper collage"),
+    Minimal("Clean"), Grids("Grids"), Stationery("Stationery"), Scribbles("Scribbles"), Digital("Digital"), Editorial("Editorial"),
+    Bold("Bold"), Celebrations("Celebrations"), Love("Love"), Weddings("Weddings"), Portraits("Portraits"), Outdoor("Outdoor"),
+    Fashion("Fashion"), Story("Stories"),
+}
 
 /**
  * A template is a recipe, not a fixed picture: given any number of photos it builds a whole carousel, so
@@ -28,8 +33,18 @@ class Template(
     val ratio: Ratio = Ratio.Portrait,
     /** How many photos to show in the gallery preview. */
     val sample: Int = 6,
+    /** Extra words for search. */
+    val tags: String = "",
+    /** The style family (kits) and layout it was made from, for "similar templates". */
+    val kit: String? = null,
+    val layout: String? = null,
     val build: TemplateBuilder.() -> Unit,
-)
+) {
+    fun matches(q: String): Boolean {
+        val hay = "$name ${category.label} $tags ${theme.name}".lowercase()
+        return q.lowercase().split(' ').filter { it.isNotBlank() }.all { it in hay }
+    }
+}
 
 /**
  * Coordinates in templates: x in slide widths from the canvas's left (1.5 = middle of slide 2), y as a
@@ -107,6 +122,14 @@ class TemplateBuilder(
         return s
     }
 
+    /** A sticker [w] canvas px wide (height from its shape), centred at ([cx] slides, [cy] of the height). */
+    fun sticker(id: String, cx: Float, cy: Float, w: Float, rotation: Float = 0f, text: String? = null, color: ColorRole? = null, anim: Anim? = null): StickerItem? {
+        val def = Stickers.byId(id) ?: return null
+        val s = StickerItem(newId(), Frame(cx * W, cy * H, w, w / def.aspect, rotation), id, text = text?.let { fill(it) } ?: def.text?.let { fill(it) }, colorRole = color, anim = anim)
+        items += s
+        return s
+    }
+
     fun route(points: List<Pair<Float, Float>>, dash: Dash = Dash.Dashed, width: Float = 7f, color: ColorRole = ColorRole.Ink, start: Cap = Cap.Dot, end: Cap = Cap.Pin, stops: Boolean = false, vehicle: Vehicle = Vehicle.None, under: Boolean = true, anim: Anim? = Anim(AnimKind.Draw, 0f, 1.6f)): RouteItem {
         val r = RouteItem(newId(), points.map { (x, y) -> Point(x * W, y * H) }, width = width, colorRole = color, dash = dash, start = start, end = end, stops = stops, vehicle = vehicle, anim = anim)
         if (under) items.add(0, r) else items += r
@@ -142,7 +165,10 @@ object Templates {
         return b.project(id, name, t.id, now)
     }
 
-    fun byId(id: String?) = all.firstOrNull { it.id == id }
+    fun byId(id: String?) = everything.firstOrNull { it.id == id }
+
+    /** The hand-made templates plus every kit × layout. */
+    val everything: List<Template> by lazy { all + TemplateKits.generated }
 
     private val rise = Anim(AnimKind.Rise, 0.1f, 0.6f)
     private val pop = Anim(AnimKind.Pop, 0.25f, 0.5f)

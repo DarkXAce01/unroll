@@ -44,7 +44,7 @@ object Seams {
                     if (box.width > p.slideW * 1.5f) return@forEachIndexed
                     crossed(p, box).forEach { out += Warning(item.id, it, Kind.Text, box) }
                 }
-                is ShapeItem, is RouteItem -> Unit
+                is ShapeItem, is StickerItem, is RouteItem -> Unit
             }
         }
         return out
@@ -59,7 +59,7 @@ object Seams {
         val regions: List<Box> = when (item) {
             is PhotoItem -> item.faces.orEmpty().mapNotNull { PhotoGeometry.regionOnCanvas(item, it) }
             is TextItem -> listOf(item.frame.bounds())
-            is ShapeItem, is RouteItem -> emptyList()
+            is ShapeItem, is StickerItem, is RouteItem -> emptyList()
         }
         if (regions.isEmpty()) return null
         val cuts = cuts(p)

@@ -21,6 +21,10 @@ import io.github.darkxace01.unroll.model.Project
 import io.github.darkxace01.unroll.model.Ratio
 import io.github.darkxace01.unroll.model.Seams
 import io.github.darkxace01.unroll.model.ShapeItem
+import io.github.darkxace01.unroll.model.ArtKind
+import io.github.darkxace01.unroll.model.FramePreset
+import io.github.darkxace01.unroll.model.StickerItem
+import io.github.darkxace01.unroll.model.Stickers
 import io.github.darkxace01.unroll.model.ShapeKind
 import io.github.darkxace01.unroll.model.TextItem
 import io.github.darkxace01.unroll.model.Anim
@@ -273,6 +277,42 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         }
         commit(p.add(ShapeItem(id, Frame(slide * p.slideW + p.slideW / 2f, p.slideH / 2f, w, h), kind, colorRole = if (kind == ShapeKind.Tape) ColorRole.Paper else ColorRole.Accent)))
         select(id)
+    }
+
+    /** A sticker from the library, centred on the slide in view, sized for its kind. */
+    fun addSticker(slide: Int, def: io.github.darkxace01.unroll.model.StickerDef) {
+        val p = _project.value ?: return
+        val id = newId()
+        val wide = def.kind in setOf(ArtKind.Title, ArtKind.RansomWord, ArtKind.BeadWord, ArtKind.Subtitle) || def.aspect >= 2f
+        val w = when {
+            def.kind == ArtKind.Subtitle -> p.slideW * 0.85f
+            wide -> p.slideW * 0.62f
+            def.aspect < 1f -> 300f * def.aspect
+            else -> 280f
+        }
+        val text = def.text?.let { Stickers.fill(it, TripInfo(title = p.name, place = p.name)) }
+        commit(p.add(StickerItem(id, Frame(slide * p.slideW + p.slideW / 2f, p.slideH / 2f, w, w / def.aspect), def.id, text = text, anim = Anim(AnimKind.Pop, 0.3f, 0.5f))))
+        select(id)
+    }
+
+    /** An empty photo slot in a frame; tapping it picks the photo. */
+    fun addFrame(slide: Int, f: FramePreset) {
+        val p = _project.value ?: return
+        val id = newId()
+        val a = PhotoGeometry.naturalAspect(f.kind) ?: 0.8f
+        var w = p.slideW * 0.62f
+        if (w / a > p.slideH * 0.7f) w = p.slideH * 0.7f * a
+        val h = w / a
+        commit(p.add(PhotoItem(id, Frame(slide * p.slideW + p.slideW / 2f, p.slideH / 2f, w, h), "", w.toInt(), h.toInt(), style = f.style(io.github.darkxace01.unroll.model.PhotoStyle(shadow = 12f)))))
+        select(id)
+    }
+
+    /** Puts a frame on a photo, reshaping it to the frame's natural shape (keeping its area). */
+    fun framePhoto(item: PhotoItem, f: FramePreset) {
+        val a = PhotoGeometry.naturalAspect(f.kind)
+        val fr = item.frame
+        val frame = if (a == null) fr else { val area = fr.w * fr.h; val h = kotlin.math.sqrt(area / a); fr.copy(w = h * a, h = h) }
+        updateItem(item.copy(frame = frame, style = f.style(item.style)))
     }
 
     // Templates & themes

@@ -83,7 +83,7 @@ object Timeline {
         val a = when (item) {
             is PhotoItem -> Anim(if (item.frame.rotation != 0f) AnimKind.Pop else AnimKind.Fade, stagger, 0.6f)
             is TextItem -> Anim(AnimKind.Rise, 0.2f + stagger, 0.6f)
-            is ShapeItem -> Anim(AnimKind.Pop, 0.4f + stagger, 0.5f)
+            is ShapeItem, is StickerItem -> Anim(AnimKind.Pop, 0.4f + stagger, 0.5f)
             is RouteItem -> Anim(AnimKind.Draw, 0f, 1.6f)
         }
         item.withAnim(a)

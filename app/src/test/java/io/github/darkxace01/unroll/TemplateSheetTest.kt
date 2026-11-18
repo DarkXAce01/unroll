@@ -9,6 +9,7 @@ import android.graphics.Shader
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.github.darkxace01.unroll.model.NewPhoto
+import io.github.darkxace01.unroll.model.TemplateKits
 import io.github.darkxace01.unroll.model.Templates
 import io.github.darkxace01.unroll.model.TripInfo
 import io.github.darkxace01.unroll.render.Fonts
@@ -43,24 +44,31 @@ class TemplateSheetTest {
             }
         }.toMap()
         var n = 0
-        for (t in Templates.all) {
-            val p = Templates.build(t, photos, TripInfo("Lisbon", "12–16 May", "Lisbon", 5), "p", t.name, 0, { "i${n++}" })
-            val k = minOf(4, p.slides)
-            val scale = 0.3f
-            val gap = 12
-            val bmp = Bitmap.createBitmap(((p.slideW * scale).toInt() + gap) * k, (p.slideH * scale).toInt(), Bitmap.Config.ARGB_8888)
+        // One sheet per style kit (each row a layout), plus one per hand-made template, all with painted sample photos.
+        val groups = Templates.all.map { listOf(it) } + TemplateKits.kits.map { k -> Templates.everything.filter { it.kit == k.id } }
+        for (group in groups) {
+            val scale = 0.2f
+            val gap = 10
+            val rows = group.map { t -> Templates.build(t, emptyList(), TripInfo("Lisbon", "12–16 May", "Lisbon", 5), "p", t.name, 0, { "i${n++}" }) }
+            val first = rows.first()
+            val sw = (first.slideW * scale).toInt(); val sh = (first.slideH * scale).toInt()
+            val bmp = Bitmap.createBitmap((sw + gap) * 5, (sh + gap) * rows.size, Bitmap.Config.ARGB_8888)
             val c = Canvas(bmp)
             c.drawColor(0xFF333333.toInt())
-            for (s in 0 until k) {
-                c.save()
-                c.translate(s * ((p.slideW * scale).toInt() + gap).toFloat(), 0f)
-                c.clipRect(0f, 0f, p.slideW * scale, p.slideH * scale)
-                c.scale(scale, scale)
-                c.translate(-s * p.slideW.toFloat(), 0f)
-                renderer.draw(c, p, { bmps[it] })
-                c.restore()
+            rows.forEachIndexed { r, p ->
+                for (s in 0 until minOf(5, p.slides)) {
+                    c.save()
+                    c.translate(s * (sw + gap).toFloat(), r * (sh + gap).toFloat())
+                    c.clipRect(0f, 0f, sw.toFloat(), sh.toFloat())
+                    c.scale(scale, scale)
+                    c.translate(-s * p.slideW.toFloat(), 0f)
+                    renderer.draw(c, p, { null }, samples = true)
+                    c.restore()
+                }
             }
-            File(out, "${t.id}.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            val name = group.first().kit ?: group.first().id
+            File(out, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
         }
+        @Suppress("UNUSED_VARIABLE") val unused = bmps
     }
 }

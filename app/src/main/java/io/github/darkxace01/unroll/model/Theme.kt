@@ -61,4 +61,8 @@ object Themes {
 @Serializable
 enum class FrameKind(val label: String) {
     None("None"), Polaroid("Polaroid"), Film("Film"), Stamp("Stamp"), Circle("Circle"), Arch("Arch"), Torn("Torn paper"),
+    Instax("Mini instant"), Wide("Wide instant"), Square("Square instant"), Slide("Slide mount"), Negative("Negative"),
+    Deckle("Deckled print"), Postcard("Postcard"), Corners("Photo corners"), Taped("Taped"), Notebook("Notebook page"),
+    Phone("Phone"), Camera("Camera screen"), Browser("Browser"), Player("Music player"), Message("Message"), Popup("Pop-up"),
+    Heart("Heart"), Oval("Oval"), Lace("Lace"), Scribble("Scribble"), Blob("Blob"), Window("Window"), Ticket("Ticket"),
 }

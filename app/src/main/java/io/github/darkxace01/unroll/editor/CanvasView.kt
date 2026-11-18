@@ -145,10 +145,12 @@ fun CanvasView(
             if (item is RouteItem) return emptyMap()
             val f = item.frame
             val isText = item is TextItem
+            // Stickers keep their drawn shape (tape is the exception: it stretches).
+            val fixedShape = item is io.github.darkxace01.unroll.model.StickerItem && io.github.darkxace01.unroll.model.Stickers.byId(item.sticker)?.kind != io.github.darkxace01.unroll.model.ArtKind.Tape
             val s = viewport.scale
             val local = buildMap {
-                put(Handle.Right, (f.w / 2) to 0f)
-                if (!isText) put(Handle.Bottom, 0f to (f.h / 2))
+                if (!fixedShape) put(Handle.Right, (f.w / 2) to 0f)
+                if (!isText && !fixedShape) put(Handle.Bottom, 0f to (f.h / 2))
                 put(Handle.Corner, (f.w / 2) to (f.h / 2))
                 put(Handle.Rotate, 0f to (-f.h / 2 - 36 * density / s))
             }

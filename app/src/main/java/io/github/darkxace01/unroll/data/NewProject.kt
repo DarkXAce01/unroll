@@ -32,11 +32,11 @@ object NewProject {
     }
 
     /** A carousel from a template, filled with [uris] (or empty slots to tap and fill when there are none). */
-    suspend fun fromTemplate(app: UnrollApp, t: Template, uris: List<Uri>): Project {
+    suspend fun fromTemplate(app: UnrollApp, t: Template, uris: List<Uri>, theme: io.github.darkxace01.unroll.model.Theme = t.theme, ratio: io.github.darkxace01.unroll.model.Ratio = t.ratio): Project {
         val photos = read(app, uris)
         val now = System.currentTimeMillis()
         val info = tripInfo(app, photos)
-        val p = Templates.build(t, photos, info, newId(), name(photos).takeIf { photos.isNotEmpty() } ?: t.name, now, ::newId)
+        val p = Templates.build(t, photos, info, newId(), name(photos).takeIf { photos.isNotEmpty() } ?: t.name, now, ::newId, theme = theme, ratio = ratio)
         return app.store.save(p)
     }
 

@@ -26,7 +26,6 @@ import io.github.darkxace01.unroll.model.ColorMath
 import io.github.darkxace01.unroll.model.Dash
 import io.github.darkxace01.unroll.model.FontKey
 import io.github.darkxace01.unroll.model.Frame
-import io.github.darkxace01.unroll.model.FrameKind
 import io.github.darkxace01.unroll.model.Item
 import io.github.darkxace01.unroll.model.Look
 import io.github.darkxace01.unroll.model.PhotoGeometry
@@ -37,6 +36,10 @@ import io.github.darkxace01.unroll.model.RouteItem
 import io.github.darkxace01.unroll.model.RouteMath
 import io.github.darkxace01.unroll.model.ShapeItem
 import io.github.darkxace01.unroll.model.ShapeKind
+import io.github.darkxace01.unroll.model.StickerItem
+import io.github.darkxace01.unroll.model.Stickers
+import io.github.darkxace01.unroll.model.TripInfo
+import io.github.darkxace01.unroll.render.art.StickerArt
 import io.github.darkxace01.unroll.model.TextAlign
 import io.github.darkxace01.unroll.model.TextItem
 import io.github.darkxace01.unroll.model.Vehicle
@@ -58,7 +61,7 @@ class Fonts(context: Context) {
     }
 
     private val app = context.applicationContext
-    private val loaded = HashMap<FontKey, Typeface>()
+    private val loaded = java.util.concurrent.ConcurrentHashMap<FontKey, Typeface>()
 
     fun get(key: FontKey, bold: Boolean = false): Typeface {
         val base = loaded.getOrPut(key) {
@@ -85,8 +88,9 @@ class Fonts(context: Context) {
  * scale, export draws each slide at full size, and video export draws every frame with [look] giving each
  * item's animated state, so the screen is always exactly the result.
  */
-class Renderer(private val fonts: Fonts) {
+class Renderer(val fonts: Fonts) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    val stickerArt = StickerArt(fonts)
     private val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG)
 
     /**
@@ -100,8 +104,11 @@ class Renderer(private val fonts: Fonts) {
         skipId: String? = null,
         placeholders: Boolean = false,
         look: ((Item) -> Look)? = null,
+        /** Fill empty slots with painted sample scenes (template previews). */
+        samples: Boolean = false,
     ) {
         drawBackground(c, p, p.width.toFloat(), p.height.toFloat())
+        var slot = 0
         for (item in p.items) {
             if (item.id == skipId) continue
             val l = look?.invoke(item) ?: Look.Still
@@ -122,9 +129,10 @@ class Renderer(private val fonts: Fonts) {
                 }
             }
             when (item) {
-                is PhotoItem -> drawPhoto(c, p, item, if (item.isEmpty) null else bitmap(item.uri), placeholders)
+                is PhotoItem -> drawPhoto(c, p, item, if (item.isEmpty) null else bitmap(item.uri), placeholders, if (samples) slot++ else -1)
                 is TextItem -> drawText(c, p, item, l.reveal)
                 is ShapeItem -> drawShape(c, p, item)
+                is StickerItem -> drawSticker(c, p, item)
                 is RouteItem -> drawRoute(c, p, item, l.reveal)
             }
             c.restoreToCount(save)
@@ -146,6 +154,18 @@ class Renderer(private val fonts: Fonts) {
         }
         c.drawRect(0f, 0f, w, h, paint)
         paint.shader = null
+        Patterns.draw(c, bg.pattern, w, h, p.theme.ink.toInt(), p.theme.accent.toInt())
+    }
+
+    fun drawSticker(c: Canvas, p: Project, s: StickerItem) {
+        val def = Stickers.byId(s.sticker) ?: return
+        val f = s.frame
+        val color = (s.color ?: s.colorRole?.let { p.theme.color(it) } ?: def.color ?: def.colorRole?.let { p.theme.color(it) } ?: p.theme.accent).toInt()
+        val text = Stickers.fill(s.text ?: def.text.orEmpty(), TripInfo(title = p.name, place = p.name))
+        inFrame(c, f) {
+            if (s.flip) c.scale(-1f, 1f)
+            stickerArt.draw(c, def, f.w, f.h, color, text, p.theme)
+        }
     }
 
     private inline fun inFrame(c: Canvas, f: Frame, block: () -> Unit) {
@@ -156,34 +176,16 @@ class Renderer(private val fonts: Fonts) {
         c.restoreToCount(save)
     }
 
-    /** The outline of a mounted photo, in its own coordinates. */
-    private fun outline(kind: FrameKind, w: Float, h: Float, radius: Float): Path {
-        val r = RectF(-w / 2, -h / 2, w / 2, h / 2)
-        return when (kind) {
-            FrameKind.Circle -> Path().apply { addOval(r, Path.Direction.CW) }
-            FrameKind.Arch -> Path().apply {
-                val rad = w / 2
-                moveTo(-w / 2, h / 2)
-                lineTo(-w / 2, -h / 2 + rad)
-                arcTo(RectF(-w / 2, -h / 2, w / 2, -h / 2 + 2 * rad), 180f, 180f)
-                lineTo(w / 2, h / 2)
-                close()
-            }
-            FrameKind.Stamp -> Shapes.scalloped(w, h, minOf(w, h) * 0.035f)
-            FrameKind.Torn -> Shapes.torn(w, h)
-            else -> Path().apply { if (radius > 0f) addRoundRect(r, radius, radius, Path.Direction.CW) else addRect(r, Path.Direction.CW) }
-        }
-    }
-
-    fun drawPhoto(c: Canvas, p: Project, item: PhotoItem, bmp: Bitmap?, placeholders: Boolean = false) {
+    fun drawPhoto(c: Canvas, p: Project, item: PhotoItem, bmp: Bitmap?, placeholders: Boolean = false, sample: Int = -1) {
         val f = item.frame
         val s = item.style
         val radius = min(s.cornerRadius, min(f.w, f.h) / 2)
         val kind = s.frame
-        val shape = outline(kind, f.w, f.h, radius)
+        val shape = Mounts.outline(kind, f.w, f.h, radius)
         val inner = PhotoGeometry.inner(item)
         val innerRect = RectF(inner.left, inner.top, inner.right, inner.bottom)
-        val mounted = kind == FrameKind.Polaroid || kind == FrameKind.Film || kind == FrameKind.Stamp
+        val mounted = PhotoGeometry.mounted(kind)
+        val mount = Mounts.mountColor(kind, s.mountRole, p.color(s.mountColor, s.mountRole).toInt())
         inFrame(c, f) {
             val layer = if (s.opacity < 1f) c.saveLayerAlpha(-f.w, -f.h, f.w, f.h, (s.opacity * 255).toInt()) else -1
             if (s.shadow > 0f || mounted) {
@@ -196,13 +198,15 @@ class Renderer(private val fonts: Fonts) {
             }
             if (mounted) {
                 paint.reset(); paint.isAntiAlias = true
-                paint.color = if (kind == FrameKind.Film && s.mountRole == io.github.darkxace01.unroll.model.ColorRole.Paper) 0xFF141414.toInt() else p.color(s.mountColor, s.mountRole).toInt()
+                paint.color = mount
                 c.drawPath(shape, paint)
-                if (kind == FrameKind.Film) drawSprockets(c, f.w, f.h)
+                Mounts.drawUnder(c, kind, f.w, f.h, innerRect, mount, paint)
             }
             val clip = c.save()
-            if (mounted) c.clipRect(innerRect) else c.clipPath(shape)
-            if (bmp == null) {
+            if (mounted) c.clipPath(Mounts.window(kind, innerRect, f.w)) else c.clipPath(shape)
+            if (bmp == null && sample >= 0) {
+                Scenes.draw(c, innerRect, sample)
+            } else if (bmp == null) {
                 paint.reset(); paint.isAntiAlias = true
                 paint.color = blend(p.theme.muted, p.theme.background, 0.75f).toInt()
                 c.drawRect(innerRect, paint)
@@ -231,6 +235,7 @@ class Renderer(private val fonts: Fonts) {
                 }
             }
             c.restoreToCount(clip)
+            Mounts.drawOver(c, kind, f.w, f.h, innerRect, mount, paint, p.theme.accent.toInt())
             if (s.borderWidth > 0f) {
                 paint.reset(); paint.isAntiAlias = true
                 paint.style = Paint.Style.STROKE
@@ -244,18 +249,6 @@ class Renderer(private val fonts: Fonts) {
                 paint.style = Paint.Style.FILL
             }
             if (layer >= 0) c.restoreToCount(layer)
-        }
-    }
-
-    private fun drawSprockets(c: Canvas, w: Float, h: Float) {
-        paint.color = 0xFFEDE6D6.toInt()
-        val band = 0.13f * h
-        val hole = band * 0.38f
-        val step = hole * 2.1f
-        var x = -w / 2 + step / 2
-        while (x + hole < w / 2) {
-            for (y in listOf(-h / 2 + band / 2, h / 2 - band / 2)) c.drawRoundRect(x, y - hole / 2, x + hole * 0.8f, y + hole / 2, hole * 0.2f, hole * 0.2f, paint)
-            x += step
         }
     }
 
