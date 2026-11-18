@@ -86,7 +86,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                                 style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 14.dp))
                         }
                         item {
-                            Text("Template previews use these freely licensed photos from Wikimedia Commons. Tap one to see its source.",
+                            Text("Template previews use these freely licensed photos from Wikimedia Commons and Pixabay. Tap one to see its source.",
                                 style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 10.dp))
                         }
                         items(io.github.darkxace01.unroll.render.SamplePhotos.credits.size) { i ->

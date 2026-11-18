@@ -38,6 +38,8 @@ class Template(
     /** The style family (kits) and layout it was made from, for "similar templates". */
     val kit: String? = null,
     val layout: String? = null,
+    /** The photo shoot its preview shows (bundled samples tagged with it), so the example looks like one real day. */
+    val shoot: String? = null,
     val build: TemplateBuilder.() -> Unit,
 ) {
     fun matches(q: String): Boolean {
@@ -95,6 +97,18 @@ class TemplateBuilder(
         val item = if (ph == null) PhotoItem(newId(), frame, "", frame.w.toInt().coerceAtLeast(1), frame.h.toInt().coerceAtLeast(1), style = style, anim = anim)
         else PhotoItem(newId(), frame, ph.uri, ph.w, ph.h, style = style, faces = ph.faces, takenAt = ph.takenAt, lat = ph.lat, lng = ph.lng, anim = anim)
         items += item
+        return item
+    }
+
+    /**
+     * A copy of [of] (same picture) in the box [l]..[r] × [t]..[b], drawn *under* it: for a blurred,
+     * enlarged backdrop of the photo itself. Doesn't use up a photo.
+     */
+    fun twin(of: PhotoItem, l: Float, t: Float, r: Float, b: Float, adjust: Adjust = Adjust(blur = 0.85f, exposure = -0.12f)): PhotoItem {
+        val frame = Frame((l + r) / 2 * W, (t + b) / 2 * H, (r - l) * W, (b - t) * H)
+        val item = of.copy(id = of.id + "~twin", frame = frame, style = PhotoStyle(), adjust = adjust, anim = null)
+        val i = items.indexOf(of)
+        if (i >= 0) items.add(i, item) else items += item
         return item
     }
 
@@ -168,7 +182,7 @@ object Templates {
     fun byId(id: String?) = everything.firstOrNull { it.id == id }
 
     /** The hand-made templates plus every kit × layout. */
-    val everything: List<Template> by lazy { all + TemplateKits.generated }
+    val everything: List<Template> by lazy { PhotoFirst.templates + all + TemplateKits.generated }
 
     private val rise = Anim(AnimKind.Rise, 0.1f, 0.6f)
     private val pop = Anim(AnimKind.Pop, 0.25f, 0.5f)

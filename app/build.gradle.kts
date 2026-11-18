@@ -18,8 +18,8 @@ android {
         // Android 10: scoped storage and MediaStore RELATIVE_PATH for saving slides to the gallery.
         minSdk = 29
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.5.0"
+        versionCode = 6
+        versionName = "0.6.0"
     }
 
     // Release signing reads keystore.properties at the project root (never committed). Without it,
@@ -84,6 +84,7 @@ android {
                 it.jvmArgs("--add-opens=java.base/jdk.internal.access=ALL-UNNAMED")
                 // Renders every template to build/outputs/templates: ./gradlew testPlayDebugUnitTest -PtemplateSheets
                 it.systemProperty("unroll.templateSheets", project.hasProperty("templateSheets").toString())
+                it.systemProperty("sheets.only", (project.findProperty("sheetsOnly") ?: "").toString())
             }
         }
     }

@@ -38,6 +38,7 @@ import io.github.darkxace01.unroll.model.ShapeItem
 import io.github.darkxace01.unroll.model.ShapeKind
 import io.github.darkxace01.unroll.model.StickerItem
 import io.github.darkxace01.unroll.model.Stickers
+import io.github.darkxace01.unroll.model.Tear
 import io.github.darkxace01.unroll.model.TripInfo
 import io.github.darkxace01.unroll.render.art.StickerArt
 import io.github.darkxace01.unroll.model.TextAlign
@@ -118,7 +119,15 @@ class Renderer(val fonts: Fonts) {
         sampleOrder: IntArray? = null,
     ) {
         drawBackground(c, p, p.width.toFloat(), p.height.toFloat())
-        var slot = 0
+        // Sample photos go to the real slots in order; a twin (a blurred backdrop) shows its photo's sample.
+        val slots = HashMap<String, Int>()
+        if (samples) {
+            var n = 0
+            for (item in p.items) if (item is PhotoItem && !item.id.endsWith(TWIN)) {
+                slots[item.id] = if (sampleOrder != null && sampleOrder.isNotEmpty()) sampleOrder[n % sampleOrder.size] else n
+                n++
+            }
+        }
         for (item in p.items) {
             if (item.id == skipId) continue
             val l = look?.invoke(item) ?: Look.Still
@@ -139,7 +148,7 @@ class Renderer(val fonts: Fonts) {
                 }
             }
             when (item) {
-                is PhotoItem -> drawPhoto(c, p, item, if (item.isEmpty) null else bitmap(item.uri), placeholders, if (!samples) -1 else if (sampleOrder != null && sampleOrder.isNotEmpty()) sampleOrder[slot++ % sampleOrder.size] else slot++)
+                is PhotoItem -> drawPhoto(c, p, item, if (item.isEmpty) null else bitmap(item.uri), placeholders, if (!samples) -1 else slots[item.id.removeSuffix(TWIN)] ?: 0)
                 is TextItem -> drawText(c, p, item, l.reveal, item.fill?.let(bitmap))
                 is ShapeItem -> drawShape(c, p, item)
                 is StickerItem -> drawSticker(c, p, item)
@@ -186,6 +195,11 @@ class Renderer(val fonts: Fonts) {
         c.restoreToCount(save)
     }
 
+    companion object {
+        /** Id ending of a photo that copies another one (same picture, e.g. blurred behind it). */
+        const val TWIN = "~twin"
+    }
+
     fun drawPhoto(c: Canvas, p: Project, item: PhotoItem, bmp: Bitmap?, placeholders: Boolean = false, sample: Int = -1) {
         val f = item.frame
         val s = item.style
@@ -196,6 +210,9 @@ class Renderer(val fonts: Fonts) {
         val innerRect = RectF(inner.left, inner.top, inner.right, inner.bottom)
         val mounted = PhotoGeometry.mounted(kind)
         val mount = Mounts.mountColor(kind, s.mountRole, p.color(s.mountColor, s.mountRole).toInt())
+        val torn = s.tear != 0 && !mounted
+        val paperEdge = if (torn) Shapes.ragged(f.w, f.h, s.tear, f.w * 0.004f, f.w * 0.012f, item.id.hashCode() + 1) else null
+        val photoEdge = if (torn) Shapes.ragged(f.w, f.h, s.tear, f.w * 0.016f, f.w * 0.03f, item.id.hashCode()) else null
         inFrame(c, f) {
             val layer = if (s.opacity < 1f) c.saveLayerAlpha(-f.w, -f.h, f.w, f.h, (s.opacity * 255).toInt()) else -1
             if (s.shadow > 0f || mounted) {
@@ -203,8 +220,14 @@ class Renderer(val fonts: Fonts) {
                 paint.reset(); paint.isAntiAlias = true
                 paint.color = 0xFF000000.toInt()
                 paint.setShadowLayer(sh, 0f, sh / 3, 0x55000000)
-                c.drawPath(shape, paint)
+                c.drawPath(paperEdge ?: shape, paint)
                 paint.clearShadowLayer()
+            }
+            if (paperEdge != null) {
+                // The rip: a strip of off-white paper, then the photo torn a little further in.
+                paint.reset(); paint.isAntiAlias = true
+                paint.color = 0xFFF3F0EA.toInt()
+                c.drawPath(paperEdge, paint)
             }
             if (mounted) {
                 paint.reset(); paint.isAntiAlias = true
@@ -213,7 +236,7 @@ class Renderer(val fonts: Fonts) {
                 Mounts.drawUnder(c, kind, f.w, f.h, innerRect, mount, paint)
             }
             val clip = c.save()
-            if (mounted) c.clipPath(Mounts.window(kind, innerRect, f.w)) else c.clipPath(shape)
+            if (mounted) c.clipPath(Mounts.window(kind, innerRect, f.w)) else c.clipPath(photoEdge ?: shape)
             if (bmp == null && sample >= 0) {
                 val sb = SamplePhotos.bitmap(sample)
                 if (sb == null) Scenes.draw(c, innerRect, sample) else {
@@ -226,7 +249,8 @@ class Renderer(val fonts: Fonts) {
                     }
                     paint.reset(); paint.isAntiAlias = true; paint.isFilterBitmap = true
                     if (!item.adjust.isIdentity) paint.colorFilter = ColorMatrixColorFilter(ColorMatrix(ColorMath.matrix(item.adjust)))
-                    c.drawBitmap(sb, src, innerRect, paint)
+                    if (item.adjust.blur > 0f) c.drawBitmap(Blur.of(sb, src, item.adjust.blur), null, innerRect, paint)
+                    else c.drawBitmap(sb, src, innerRect, paint)
                     paint.colorFilter = null
                 }
             } else if (bmp == null) {
@@ -247,7 +271,8 @@ class Renderer(val fonts: Fonts) {
                 paint.reset(); paint.isAntiAlias = true; paint.isFilterBitmap = true
                 if (!item.adjust.isIdentity) paint.colorFilter = ColorMatrixColorFilter(ColorMatrix(ColorMath.matrix(item.adjust)))
                 if (item.crop.flipX) c.scale(-1f, 1f, innerRect.centerX(), 0f)
-                c.drawBitmap(bmp, src, innerRect, paint)
+                if (item.adjust.blur > 0f) c.drawBitmap(Blur.of(bmp, src, item.adjust.blur), null, innerRect, paint)
+                else c.drawBitmap(bmp, src, innerRect, paint)
                 if (item.crop.flipX) c.scale(-1f, 1f, innerRect.centerX(), 0f)
                 paint.colorFilter = null
                 if (item.adjust.vignette > 0f) {
@@ -616,6 +641,39 @@ object Shapes {
     }
 
     /** Paper torn by hand: a slightly jagged rectangle. Deterministic, so it doesn't flicker. */
+    /**
+     * A rectangle centred on 0,0 whose [edges] (Tear bits) are ripped: the line wanders between [min] and
+     * [max] inside the edge, coarse wobble plus fine fibres, the same every time for one [seed].
+     */
+    fun ragged(w: Float, h: Float, edges: Int, min: Float, max: Float, seed: Int): Path {
+        val rnd = java.util.Random(seed.toLong())
+        val step = (minOf(w, h) / 160f).coerceAtLeast(3f)
+        fun edge(len: Float): FloatArray {
+            val n = (len / step).toInt().coerceAtLeast(2)
+            // Coarse wobble from a few random knots, smoothed; then fine fibre noise on top.
+            val knots = FloatArray(n / 12 + 3) { rnd.nextFloat() }
+            return FloatArray(n + 1) { i ->
+                val t = i.toFloat() / n * (knots.size - 1)
+                val k = t.toInt().coerceAtMost(knots.size - 2); val f = t - k
+                val sm = f * f * (3 - 2 * f)
+                val coarse = knots[k] + (knots[k + 1] - knots[k]) * sm
+                val fine = rnd.nextFloat()
+                min + (max - min) * (coarse * 0.75f + fine * 0.25f)
+            }
+        }
+        val l = -w / 2; val t = -h / 2; val r = w / 2; val b = h / 2
+        val p = Path()
+        fun inset(bit: Int, a: FloatArray, i: Int) = if (edges and bit != 0) a[i] else 0f
+        val top = edge(w); val right = edge(h); val bottom = edge(w); val left = edge(h)
+        p.moveTo(l + inset(Tear.LEFT, left, left.size - 1), t + inset(Tear.TOP, top, 0))
+        for (i in top.indices) p.lineTo(l + w * i / (top.size - 1), t + inset(Tear.TOP, top, i))
+        for (i in right.indices) p.lineTo(r - inset(Tear.RIGHT, right, i), t + h * i / (right.size - 1))
+        for (i in bottom.indices) p.lineTo(r - w * i / (bottom.size - 1), b - inset(Tear.BOTTOM, bottom, i))
+        for (i in left.indices) p.lineTo(l + inset(Tear.LEFT, left, i), b - h * i / (left.size - 1))
+        p.close()
+        return p
+    }
+
     fun torn(w: Float, h: Float): Path {
         val p = Path()
         val rnd = java.util.Random(((w * 31 + h) * 7).toLong())

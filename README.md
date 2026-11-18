@@ -66,6 +66,10 @@ A Grease Pencil Studio app. See [PLAN.md](PLAN.md) for the product plan and road
   one-tap fix that moves it the shortest way off the cut
 - Photos too small for their frame are flagged before they look soft on Instagram
 
+**Photo-first templates**
+- Templates where the photos are the design: torn-paper seams, prints over a soft blurred copy, editorial white space, loose prints, word grids, black & white, wide openers and clipped prints
+- Each preview shows one real photo shoot (Pixabay, credited in Settings), so it looks like a finished post
+
 **Layouts**
 - Per-slide grids picked from little diagrams: 1, 2 across/down, 1 + 2, 2 + 1, 1 over 2, 2 over 1, 1 + 3, 1 + 4, 3 down, 3 across, 4, 6, 9, framed, and photo in photo
 - Photo in photo: select a photo, tap Photo inside, and a second photo sits in its corner as a bordered print

@@ -114,8 +114,11 @@ data class Adjust(
     val filter: Filter = Filter.None,
     /** 0..1, how strongly [filter] applies. */
     val filterStrength: Float = 1f,
+    /** 0..1 soft focus: a photo blurred into a backdrop for a sharp copy of itself. */
+    val blur: Float = 0f,
 ) {
-    val isIdentity get() = this == Adjust()
+    /** No colour change (blur is drawn separately). */
+    val isIdentity get() = copy(blur = 0f) == Adjust()
 }
 
 @Serializable
@@ -138,7 +141,17 @@ data class PhotoStyle(
     val mountRole: ColorRole? = ColorRole.Paper,
     val mountColor: Long = 0xFFFFFFFF,
     val borderRole: ColorRole? = null,
+    /** Edges torn like paper, as [Tear] bits, showing a strip of paper along the rip. */
+    val tear: Int = 0,
 )
+
+/** Which edges of a photo are torn ([PhotoStyle.tear]). */
+object Tear {
+    const val LEFT = 1
+    const val TOP = 2
+    const val RIGHT = 4
+    const val BOTTOM = 8
+}
 
 @Serializable
 enum class TextAlign { Start, Center, End }

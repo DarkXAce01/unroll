@@ -225,7 +225,8 @@ object TemplateSearch {
             var matched = 0
             for ((w, hits) in parsed) {
                 val f = fit(t, hits, w)
-                if (f >= 0.5f) { total += f; matched++ }
+                // Clear matches count fully; a near miss still nudges ties toward templates that touch every word.
+                if (f >= 0.5f) { total += f; matched++ } else total += f * 0.5f
             }
             if (matched == 0) null else t to total * matched / parsed.size
         }
@@ -236,7 +237,12 @@ object TemplateSearch {
         // shows several looks instead of six layouts of one.
         val seen = HashMap<String, Int>()
         return scored.filter { it.second >= top * 0.62f }.sortedByDescending { it.second }.take(60)
-            .map { (t, sc) -> val k = t.kit ?: t.id; val n = seen.merge(k, 1, Int::plus)!! - 1; t to sc * Math.pow(0.9, n.toDouble()).toFloat() }
+            .map { (t, sc) ->
+                // Photo-first templates share a shoot across designs: spread by shoot and by design.
+                val n = seen.merge(t.kit ?: t.id, 1, Int::plus)!! - 1
+                val m = t.shoot?.let { seen.merge("shoot:$it", 1, Int::plus)!! - 1 } ?: 0
+                t to sc * Math.pow(0.9, (n + m).toDouble()).toFloat()
+            }
             .sortedByDescending { it.second }.map { it.first }
     }
 }

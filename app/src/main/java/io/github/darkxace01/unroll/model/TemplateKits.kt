@@ -301,11 +301,14 @@ object TemplateKits {
     private val polaroid = PhotoStyle(frame = FrameKind.Polaroid, shadow = 14f)
     private fun preset(id: String, shadow: Float = 14f) = (FrameLibrary.byId(id) ?: FrameLibrary.all.first()).style(PhotoStyle(shadow = shadow))
 
+    /** Kits with a lot of personality: still here, shown after the calmer ones. */
+    val playful = setOf("party", "instant-pastel", "love-notes", "screen-time", "photo-dump", "stamps", "admit-one", "scribbles", "postcards", "notebook", "beach-days")
+
     val kits = listOf(
         Kit("polaroid-travel", "Polaroid travel", Category.Travel, Themes.Paper, listOf(polaroid), TitleSpec.Sticker("titles/serif-script-title"),
             listOf("travel/plane", "travel/pin", "scribbles/arrow", "travel/postmark", "travel/compass"), tape = "tape/masking", caption = "Day {day}", tilt = 4f, pattern = Pattern.Paper, route = true, tags = "trip holiday vacation"),
         Kit("instant-pastel", "Instant pastel", Category.Instant, Themes.Blush, listOf(preset("instax-pink"), preset("instax-white"), preset("instax-sky")), TitleSpec.Sticker("titles/script-line-title"),
-            listOf("shine/heart-rose", "shine/sparkles-gold", "diecut/heart", "beads/word-pastel-summer"), tape = "tape/hearts-pink", caption = "♡ {nn}", tilt = 5f, pattern = Pattern.Dots, tags = "instax cute pastel"),
+            listOf("shine/heart-rose", "shine/sparkles-gold"), tape = "tape/hearts-pink", caption = "♡ {nn}", tilt = 5f, tags = "instax cute pastel"),
         Kit("film-noir", "Film noir", Category.Film, Themes.Noir, listOf(PhotoStyle(frame = FrameKind.Film)), TitleSpec.Sticker("titles/spaced-title"),
             captionStickers = (0 until 20).map { "subtitles/$it" }, layouts = setOf("strip", "solo", "pairs", "column", "seam", "hero", "triptych", "inset"), tags = "cinema movie subtitles dark"),
         Kit("contact-sheet", "Contact sheet", Category.Film, Themes.Sand, listOf(preset("negative")), TitleSpec.Sticker("titles/boxed-title"),
@@ -321,10 +324,10 @@ object TemplateKits {
         Kit("scribbles", "Scribbles", Category.Scribbles, Themes.Paper.copy(name = "Notebook", background = 0xFFFFFFFF), listOf(preset("scribble"), PhotoStyle()), TitleSpec.Words(FontRole.Hand, 170f),
             listOf("scribbles/arrow", "scribbles/heart", "scribbles/sparkles", "scribbles/swirl", "scribbles/smile", "scribbles/star", "scribbles/underline"), caption = "{nn} ↓", tilt = 2f, pattern = Pattern.Grid, tags = "doodle hand drawn chalk"),
         Kit("screen-time", "Screen time", Category.Digital, Themes.Ocean, listOf(preset("phone-black"), preset("browser-light"), preset("player-light"), preset("message-blue"), preset("popup-light"), preset("camera-black")),
-            TitleSpec.Sticker("titles/outline-title"), listOf("diecut/heart", "diecut/smile", "diecut/sparkle", "bubbles/round-hi!"), pattern = Pattern.Dots,
+            TitleSpec.Sticker("titles/outline-title"), listOf("diecut/sparkle", "bubbles/round-hi!"),
             layouts = setOf("solo", "pairs", "column", "strip", "scatter", "diary"), tags = "phone screenshot app ui"),
-        Kit("party", "Party time", Category.Celebrations, Themes.Sunset, listOf(preset("instax-white"), preset("square-cream")), TitleSpec.Sticker("titles/outline-title"),
-            listOf("shine/star-gold", "shine/burst-gold", "shine/sparkles-gold", "diecut/cake", "diecut/music"), tilt = 6f, pattern = Pattern.Confetti, caption = "✶ {nn}", tags = "birthday party celebrate"),
+        Kit("party", "Party time", Category.Celebrations, Themes.Sunset.copy(background = 0xFFEDE6DE), listOf(preset("instax-white"), preset("square-cream")), TitleSpec.Sticker("titles/script-line-title"),
+            listOf("shine/star-gold", "shine/sparkles-gold"), tilt = 4f, tags = "birthday party celebrate"),
         Kit("wedding", "Wedding day", Category.Weddings, Themes.Sand, listOf(PhotoStyle(frame = FrameKind.Arch), preset("lace-white"), PhotoStyle(frame = FrameKind.Oval)), TitleSpec.Sticker("titles/laurel-title"),
             listOf("flowers/blossom", "flowers/leaf-sprig", "shine/heart-gold"), pattern = Pattern.Linen, layouts = setOf("solo", "pairs", "column", "trio", "hero", "seam", "inset", "triptych"), tags = "wedding engagement elegant"),
         Kit("out-there", "Out there", Category.Outdoor, Themes.Forest, listOf(preset("deckle-white")), TitleSpec.Sticker("titles/stack-title"),
@@ -332,9 +335,9 @@ object TemplateKits {
         Kit("editorial", "Editorial", Category.Fashion, Themes.Mono, listOf(PhotoStyle()), TitleSpec.Sticker("titles/magazine-title"),
             listOf("phrases/lately", "labels/dymo-black"), caption = "{nn}", layouts = setOf("column", "solo", "trio", "hero", "grid", "mosaic", "inset", "triptych", "bento"), tags = "fashion magazine vogue outfit"),
         Kit("beach-days", "Beach days", Category.Travel, Themes.Ocean, listOf(preset("wide-white"), preset("polaroid-white")), TitleSpec.Sticker("titles/script-line-title"),
-            listOf("diecut/shell", "diecut/palm", "diecut/sun", "diecut/sunglasses", "diecut/icecream"), tape = "tape/stripes-teal", caption = "day {day}", tilt = 4f, pattern = Pattern.Waves, tags = "summer sea sand"),
+            listOf("diecut/shell", "diecut/palm"), tape = "tape/stripes-teal", caption = "day {day}", tilt = 4f, tags = "summer sea sand"),
         Kit("photo-dump", "Photo dump", Category.Recap, Themes.Citrus, listOf(preset("corners-white"), PhotoStyle(cornerRadius = 24f), preset("taped")), TitleSpec.Sticker("phrases/photo-dump", null, 0.9f),
-            listOf("phrases/lately", "phrases/weekend", "phrases/recap", "diecut/star"), tilt = 3f, pattern = Pattern.Halftone, tags = "dump recap month lately"),
+            listOf("phrases/lately", "phrases/weekend", "phrases/recap"), tilt = 3f, tags = "dump recap month lately"),
         Kit("postcards", "Postcards home", Category.Stationery, Themes.Sunset, listOf(preset("postcard-white")), TitleSpec.Sticker("travel/hello", "Hello from {place}"),
             listOf("stamps/postmark-wavy", "stamps/sun", "tickets/stub-cream"), tilt = 3f, pattern = Pattern.Paper, route = true, tags = "postcard greetings"),
         Kit("notebook", "Notebook", Category.Stationery, Themes.Paper, listOf(preset("notebook-white")), TitleSpec.Words(FontRole.Hand, 160f),
@@ -342,7 +345,7 @@ object TemplateKits {
         Kit("portraits", "Portraits", Category.Portraits, Themes.Blush, listOf(PhotoStyle(frame = FrameKind.Arch), PhotoStyle(frame = FrameKind.Oval)), TitleSpec.Sticker("titles/serif-script-title"),
             listOf("shine/sparkle-gold"), layouts = setOf("solo", "pairs", "column", "trio", "seam", "inset", "triptych"), tags = "portrait people face"),
         Kit("love-notes", "Love notes", Category.Love, Themes.Blush, listOf(PhotoStyle(frame = FrameKind.Heart, shadow = 10f), preset("polaroid-pink")), TitleSpec.Sticker("titles/script-line-title"),
-            listOf("beads/word-gold-love", "beads/word-white-xoxo", "shine/heart-rose", "scribbles/heart", "diecut/lips"), caption = "xo", tilt = 4f, pattern = Pattern.Stars, tags = "valentine couple love"),
+            listOf("shine/heart-rose", "scribbles/heart"), caption = "xo", tilt = 4f, tags = "valentine couple love"),
         Kit("admit-one", "Admit one", Category.Bold, Themes.Retro, listOf(preset("ticket-cream"), preset("slide-white")), TitleSpec.Sticker("titles/boxed-title"),
             listOf("tickets/admit-cream", "stamps/rubber-approved-rect", "scribbles/star"), tilt = 3f, pattern = Pattern.Halftone, caption = "№ {nn}", tags = "retro vintage ticket"),
         Kit("grid-lines", "Grid lines", Category.Grids, Themes.Mono.copy(name = "Paper white", background = 0xFFF7F7F5), listOf(PhotoStyle()), TitleSpec.Words(FontRole.Head, 130f, bold = true),

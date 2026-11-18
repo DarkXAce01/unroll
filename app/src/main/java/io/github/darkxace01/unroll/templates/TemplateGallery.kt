@@ -149,7 +149,7 @@ object Previews {
             c.scale(scale, scale)
             c.translate(-from * p.slideW.toFloat(), 0f)
             c.clipRect(from * p.slideW.toFloat(), 0f, (from + n) * p.slideW.toFloat(), p.slideH.toFloat())
-            r.draw(c, p, { null }, samples = true, sampleOrder = SamplePhotos.order(t.id.hashCode(), SamplePhotos.tagsFor(t.category.name)))
+            r.draw(c, p, { null }, samples = true, sampleOrder = SamplePhotos.order(t.id.hashCode(), SamplePhotos.tagsFor(t.category.name), t.shoot, wideFirst = t.layout == "pano"))
             cache.put(key, bmp)
             bmp
         }
@@ -255,18 +255,27 @@ private fun FeaturedPager(featured: List<Template>, onPick: (Template) -> Unit) 
 }
 
 /** Hand-picked for the banner; the ones that show off seamless carousels best. */
-private val featuredIds = listOf("panorama-title", "postcard-route", "k-polaroid-travel-scatter", "k-film-noir-strip", "scrapbook", "k-wedding-hero", "k-beach-days-seam")
+private val featuredIds = listOf("pf-torn-van_couple", "pf-blur-winter_magic", "pf-editorial-city_couple", "pf-clip-van_solo", "pf-mono-wedding_dance", "pf-pano-van_couple", "pf-prints-city_couple")
 
 /** Every template, mixed so neighbours differ: hand-made first, then one of each kit in turn. */
 private val forYou: List<Template> by lazy {
-    val (hand, kits) = Templates.everything.partition { it.kit == null }
-    val byKit = kits.groupBy { it.kit }.values.map { it.toMutableList() }
+    val (photoFirst, others) = Templates.everything.partition { it.kit?.startsWith("pf-") == true }
+    val (hand, kits) = others.partition { it.kit == null }
+    // Calm kits before the playful ones; inside each, one of each kit in turn.
+    val (playful, calm) = kits.partition { it.kit in io.github.darkxace01.unroll.model.TemplateKits.playful }
+    val calmKits = calm.groupBy { it.kit }.values.map { it.toMutableList() }
+    val playfulKits = playful.groupBy { it.kit }.values.map { it.toMutableList() }
     buildList {
+        // Photo-first leads: one per shoot in turn, so neighbours are different days and different designs.
+        val byShoot = photoFirst.groupBy { it.shoot }.values.map { it.toMutableList() }
+        while (byShoot.any { it.isNotEmpty() }) for (s in byShoot) if (s.isNotEmpty()) add(s.removeAt(0))
         addAll(hand)
-        var round = 0
-        while (byKit.any { it.isNotEmpty() }) {
-            for (k in byKit) if (k.isNotEmpty()) add(k.removeAt((round * 5) % k.size))
-            round++
+        for (byKit in listOf(calmKits, playfulKits)) {
+            var round = 0
+            while (byKit.any { it.isNotEmpty() }) {
+                for (k in byKit) if (k.isNotEmpty()) add(k.removeAt((round * 5) % k.size))
+                round++
+            }
         }
     }
 }

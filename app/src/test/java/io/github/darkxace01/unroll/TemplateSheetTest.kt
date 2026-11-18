@@ -46,7 +46,10 @@ class TemplateSheetTest {
         var n = 0
         io.github.darkxace01.unroll.render.SamplePhotos.init(androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>().assets)
         // One sheet per style kit (each row a layout), plus one per hand-made template, all with painted sample photos.
-        val groups = Templates.all.map { listOf(it) } + TemplateKits.kits.map { k -> Templates.everything.filter { it.kit == k.id } }
+        val only = System.getProperty("sheets.only")?.takeIf { it.isNotEmpty() }
+        val photoFirst = io.github.darkxace01.unroll.model.PhotoFirst.templates.groupBy { it.shoot }.values.toList()
+        val groups = (photoFirst + Templates.all.map { listOf(it) } + TemplateKits.kits.map { k -> Templates.everything.filter { it.kit == k.id } })
+            .filter { only == null || it.first().id.startsWith(only) || it.first().kit?.startsWith(only) == true }
         for (group in groups) {
             val scale = 0.2f
             val gap = 10
@@ -65,11 +68,11 @@ class TemplateSheetTest {
                     c.translate(-s * p.slideW.toFloat(), 0f)
                     val t = group[r]
                     renderer.draw(c, p, { null }, samples = true,
-                        sampleOrder = io.github.darkxace01.unroll.render.SamplePhotos.order(t.id.hashCode(), io.github.darkxace01.unroll.render.SamplePhotos.tagsFor(t.category.name)))
+                        sampleOrder = io.github.darkxace01.unroll.render.SamplePhotos.order(t.id.hashCode(), io.github.darkxace01.unroll.render.SamplePhotos.tagsFor(t.category.name), t.shoot, wideFirst = t.layout == "pano"))
                     c.restore()
                 }
             }
-            val name = group.first().kit ?: group.first().id
+            val name = group.first().shoot?.let { "pf-$it" } ?: group.first().kit ?: group.first().id
             File(out, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
         }
         @Suppress("UNUSED_VARIABLE") val unused = bmps

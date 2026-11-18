@@ -9,7 +9,11 @@ import kotlinx.serialization.json.Json
 
 /** One bundled sample photo and who took it (all freely licensed, credited in Settings). */
 @Serializable
-data class SampleCredit(val file: String, val tag: String, val w: Int, val h: Int, val title: String, val artist: String, val license: String, val source: String)
+data class SampleCredit(
+    val file: String, val tag: String, val w: Int, val h: Int, val title: String, val artist: String, val license: String, val source: String,
+    /** Photos from one shoot share this, so a template's preview can show one real day. */
+    val shoot: String = "",
+)
 
 /**
  * Real photos for template previews, so a template looks the way it will with your own pictures.
@@ -49,8 +53,16 @@ object SamplePhotos {
      * A stable order of photos for one template: photos that suit [tags] first, shuffled by [seed] so
      * neighbouring templates don't all show the same beach.
      */
-    fun order(seed: Int, tags: Set<String>): IntArray {
+    fun order(seed: Int, tags: Set<String>, shoot: String? = null, wideFirst: Boolean = false): IntArray {
         if (credits.isEmpty()) return IntArray(0)
+        if (shoot != null) {
+            val own = credits.indices.filter { credits[it].shoot == shoot }
+            if (own.isNotEmpty()) {
+                // A layout that opens across two slides starts on the shoot's widest photo.
+                val lead = if (wideFirst) own.maxBy { credits[it].w.toFloat() / credits[it].h } else null
+                return (listOfNotNull(lead) + own.filter { it != lead }).toIntArray()
+            }
+        }
         val rnd = java.util.Random(seed.toLong())
         val idx = credits.indices.shuffled(rnd)
         val (fit, rest) = idx.partition { credits[it].tag in tags }

@@ -37,7 +37,8 @@ class TemplateTest {
             val p = Templates.build(t, photos(k), info, "p", "x", 0, ::id)
             assertTrue("${t.id} with $k: ${p.slides} slides", p.slides in 1..MAX_SLIDES)
             val placed = p.items.filterIsInstance<PhotoItem>()
-            val filled = placed.filterNot { it.isEmpty }
+            // A twin (the blurred copy behind a photo) is the same photo, not another one.
+            val filled = placed.filterNot { it.isEmpty || it.id.endsWith("~twin") }
             // Every photo is used unless the carousel hit the 20-slide limit.
             if (p.slides < MAX_SLIDES) assertEquals("${t.id} with $k", k, filled.size)
             if (k == 0) assertTrue("${t.id} has slots", placed.isNotEmpty() && placed.all { it.isEmpty })
