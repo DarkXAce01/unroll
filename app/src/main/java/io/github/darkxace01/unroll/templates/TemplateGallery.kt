@@ -284,8 +284,9 @@ fun TemplateGallery(onPick: (Template) -> Unit, modifier: Modifier = Modifier, h
     var category by rememberSaveable { mutableStateOf<Category?>(null) }
     var saved by rememberSaveable { mutableStateOf(false) }
     val all = Templates.everything
+    val found = remember(query) { if (query.isBlank()) emptyList() else io.github.darkxace01.unroll.model.TemplateSearch.search(query, forYou) }
     val shown = when {
-        searching && query.isNotBlank() -> all.filter { it.matches(query) }
+        searching && query.isNotBlank() -> found
         saved -> all.filter { it.id in favs }
         category != null -> all.filter { it.category == category }
         else -> forYou
@@ -334,7 +335,7 @@ fun TemplateGallery(onPick: (Template) -> Unit, modifier: Modifier = Modifier, h
             } else if (shown.isEmpty()) {
                 item(span = StaggeredGridItemSpan.FullLine) {
                     Text(
-                        if (saved) "Tap the heart on any template to keep it here." else "Nothing matches. Try another word.",
+                        if (saved) "Tap the heart on any template to keep it here." else "Nothing for that yet. Try a moment or a mood, like friends, birthday, beach or film.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 24.dp),
                     )
                 }

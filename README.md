@@ -41,7 +41,7 @@ A Grease Pencil Studio app. See [PLAN.md](PLAN.md) for the product plan and road
 
 **Templates & themes**
 - **227 templates** in 20 categories: 16 hand-made ones plus 22 style kits × 12 layouts. Browse one calm feed
-  (featured carousels, then every template two by two, previewed with real photos), search, save favourites, swipe through every slide before using one, remix it in any of 12
+  (featured carousels, then every template two by two, previewed with real photos), search by meaning ("friends", "bday", "ootd" or a typo all find the right looks, offline; gibberish finds nothing), save favourites, swipe through every slide before using one, remix it in any of 12
   colour themes and any of 4 formats. Each one stretches to any number of photos, or starts with
   empty slots you tap to fill. Title, dates and place come from the photos themselves
 - Everything a template makes stays editable. 12 themes: switch one and every colour and font that follows
