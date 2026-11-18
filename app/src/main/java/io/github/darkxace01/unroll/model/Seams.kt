@@ -40,9 +40,11 @@ object Seams {
                 }
                 is TextItem -> {
                     val box = item.frame.bounds()
+                    // Text spanning more than a slide and a half runs across the cuts on purpose.
+                    if (box.width > p.slideW * 1.5f) return@forEachIndexed
                     crossed(p, box).forEach { out += Warning(item.id, it, Kind.Text, box) }
                 }
-                is ShapeItem -> Unit
+                is ShapeItem, is RouteItem -> Unit
             }
         }
         return out
@@ -57,7 +59,7 @@ object Seams {
         val regions: List<Box> = when (item) {
             is PhotoItem -> item.faces.orEmpty().mapNotNull { PhotoGeometry.regionOnCanvas(item, it) }
             is TextItem -> listOf(item.frame.bounds())
-            is ShapeItem -> emptyList()
+            is ShapeItem, is RouteItem -> emptyList()
         }
         if (regions.isEmpty()) return null
         val cuts = cuts(p)

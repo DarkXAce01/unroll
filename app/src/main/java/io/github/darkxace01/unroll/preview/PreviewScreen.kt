@@ -27,6 +27,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,17 +55,24 @@ fun PreviewScreen(p: Project, onBack: () -> Unit, onExport: () -> Unit) {
         for (i in 0 until p.slides) { out += app.exporter.renderSlide(p, i, 0.75f, cache); value = out.toList() }
     }
     val pager = rememberPagerState { p.slides }
+    var playing by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().background(Color.White).statusBarsPadding().navigationBarsPadding()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
             Text("Preview", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            TextButton(onClick = { playing = !playing }) { Text(if (playing) "Carousel" else "Play video") }
             TextButton(onClick = onExport) { Text("Export") }
         }
         // A feed post header, so it reads as a real post.
         Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(32.dp).clip(CircleShape).background(Color(0xFFDDDDDD)))
             Text("you", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 10.dp))
+        }
+        if (playing) {
+            ScrollPlayer(p)
+            Text("How the Reel / scroll video plays. Export saves it as an MP4.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(12.dp))
+            return@Column
         }
         HorizontalPager(pager, Modifier.fillMaxWidth().aspectRatio(p.slideW.toFloat() / p.slideH)) { i ->
             val b = slides.getOrNull(i)

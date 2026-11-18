@@ -133,6 +133,11 @@ data class PhotoStyle(
     val shadow: Float = 0f,
     /** 0..1. */
     val opacity: Float = 1f,
+    val frame: FrameKind = FrameKind.None,
+    /** Colour of the mount (polaroid paper, stamp edge, film): by role, or [mountColor] when null. */
+    val mountRole: ColorRole? = ColorRole.Paper,
+    val mountColor: Long = 0xFFFFFFFF,
+    val borderRole: ColorRole? = null,
 )
 
 @Serializable
@@ -149,6 +154,12 @@ sealed interface Item {
     val id: String
     val frame: Frame
     fun withFrame(f: Frame): Item
+
+    /** How it arrives in a video export. */
+    val anim: Anim?
+
+    /** Whether a tap at a canvas point lands on this item. [tolerance] is in canvas units. */
+    fun hits(x: Float, y: Float, tolerance: Float): Boolean = frame.contains(x, y)
 }
 
 @Serializable
@@ -170,9 +181,13 @@ data class PhotoItem(
     val takenAt: Long? = null,
     val lat: Double? = null,
     val lng: Double? = null,
+    override val anim: Anim? = null,
 ) : Item {
     override fun withFrame(f: Frame) = copy(frame = f)
     val aspect get() = srcW.toFloat() / srcH.coerceAtLeast(1)
+
+    /** A template slot waiting for a photo. */
+    val isEmpty get() = uri.isEmpty()
 }
 
 @Serializable
@@ -194,6 +209,11 @@ data class TextItem(
     val shadow: Float = 0f,
     /** A rounded box behind the text, or null. */
     val pillColor: Long? = null,
+    /** Theme roles; when set they win over [color], [font] and [pillColor]. */
+    val colorRole: ColorRole? = null,
+    val fontRole: FontRole? = null,
+    val pillRole: ColorRole? = null,
+    override val anim: Anim? = null,
 ) : Item {
     override fun withFrame(f: Frame) = copy(frame = f)
 }
@@ -206,12 +226,72 @@ data class ShapeItem(
     val kind: ShapeKind,
     val color: Long = 0xFFFFFFFF,
     val stroke: Float = 0f,
+    val colorRole: ColorRole? = null,
+    override val anim: Anim? = null,
 ) : Item {
     override fun withFrame(f: Frame) = copy(frame = f)
 }
 
 @Serializable
-enum class ShapeKind(val label: String) { Rect("Box"), Circle("Circle"), Line("Line"), Arrow("Arrow"), Heart("Heart"), Star("Star"), Pin("Pin"), Plane("Plane"), Tape("Tape") }
+enum class ShapeKind(val label: String) {
+    Rect("Box"), Circle("Circle"), Line("Line"), Arrow("Arrow"), Heart("Heart"), Star("Star"), Pin("Pin"), Plane("Plane"), Tape("Tape"),
+    Sun("Sun"), Sparkle("Sparkle"), Wave("Wave"), Ticket("Ticket"), Compass("Compass"), Burst("Burst"), Blob("Blob"), Dots("Dots"),
+}
+
+@Serializable
+enum class Dash(val label: String) { Solid("Solid"), Dashed("Dashed"), Dotted("Dotted") }
+
+@Serializable
+enum class Vehicle(val label: String) { None("None"), Plane("Plane"), Car("Car"), Train("Train"), Boat("Boat"), Walk("Walk"), Heart("Heart") }
+
+@Serializable
+enum class Cap(val label: String) { None("None"), Dot("Dot"), Ring("Ring"), Pin("Pin"), Arrow("Arrow") }
+
+/**
+ * A path drawn across the canvas: a trip's route, a doodle, a line tying photos together. [points] are
+ * canvas coordinates; [frame] is always their bounding box, so moving or resizing the item maps them.
+ */
+@Serializable
+@SerialName("route")
+data class RouteItem(
+    override val id: String,
+    val points: List<Point>,
+    val smooth: Boolean = true,
+    val width: Float = 8f,
+    val color: Long = 0xFF1D1E22,
+    val colorRole: ColorRole? = ColorRole.Ink,
+    val dash: Dash = Dash.Dashed,
+    val start: Cap = Cap.Dot,
+    val end: Cap = Cap.Pin,
+    /** A dot at every point between the ends: the stops on the way. */
+    val stops: Boolean = false,
+    val vehicle: Vehicle = Vehicle.None,
+    /** Where along the route the vehicle sits, 0..1. */
+    val vehicleAt: Float = 0.5f,
+    val vehicleSize: Float = 80f,
+    override val anim: Anim? = null,
+) : Item {
+    override val frame: Frame get() = boundsOf(points)
+
+    override fun withFrame(f: Frame): Item {
+        val old = frame
+        val sx = if (old.w > 0.5f) f.w / old.w else 1f
+        val sy = if (old.h > 0.5f) f.h / old.h else 1f
+        return copy(points = points.map { Point(f.cx + (it.x - old.cx) * sx, f.cy + (it.y - old.cy) * sy) })
+    }
+
+    override fun hits(x: Float, y: Float, tolerance: Float) =
+        RouteMath.distanceToPolyline(RouteMath.sample(this), x, y) <= tolerance + width / 2
+
+    companion object {
+        fun boundsOf(points: List<Point>): Frame {
+            if (points.isEmpty()) return Frame(0f, 0f, 0f, 0f)
+            val l = points.minOf { it.x }; val r = points.maxOf { it.x }
+            val t = points.minOf { it.y }; val b = points.maxOf { it.y }
+            return Frame((l + r) / 2, (t + b) / 2, r - l, b - t)
+        }
+    }
+}
 
 @Serializable
 enum class BackgroundKind { Solid, Gradient }
@@ -223,6 +303,8 @@ data class Background(
     val color2: Long = 0xFFE8E2D6,
     /** Gradient direction in degrees; 0 = left to right across the whole canvas. */
     val angle: Float = 0f,
+    val colorRole: ColorRole? = null,
+    val color2Role: ColorRole? = null,
 )
 
 @Serializable
@@ -236,6 +318,10 @@ data class Project(
     val items: List<Item> = emptyList(),
     val created: Long = 0,
     val updated: Long = 0,
+    /** Colours and fonts that role-tagged items follow. */
+    val theme: Theme = Themes.Paper,
+    /** The template this started from, if any (for "more slides like this"). */
+    val template: String? = null,
 ) {
     val slideW get() = ratio.slideW
     val slideH get() = ratio.slideH
@@ -255,7 +341,7 @@ data class Project(
     fun sendToBack(id: String) = item(id)?.let { copy(items = listOf(it) + items.filterNot { i -> i.id == id }) } ?: this
 
     /** Topmost item under a canvas point. */
-    fun hit(x: Float, y: Float): Item? = items.lastOrNull { it.frame.contains(x, y) }
+    fun hit(x: Float, y: Float, tolerance: Float = 0f): Item? = items.lastOrNull { it.hits(x, y, tolerance) }
 
     /** The slide a canvas x falls in. */
     fun slideAt(x: Float) = (x / slideW).toInt().coerceIn(0, slides - 1)
@@ -276,6 +362,20 @@ data class Project(
             item.withFrame(f.copy(cx = slide * r.slideW + inSlideX * sx, cy = f.cy * sy, w = f.w * s, h = f.h * s))
         }.map { if (it is TextItem) it.copy(size = it.size * s) else it })
     }
+
+    /** Copy of an item with a different animation. */
+    fun animate(id: String, a: Anim?): Project = item(id)?.let { replace(it.withAnim(a)) } ?: this
+
+    /** Puts [item] just above the background, under everything else (routes under photos). */
+    fun addBottom(item: Item) = copy(items = listOf(item) + items)
+
+    /** Colour actually used: the theme's for a role, else the item's own. */
+    fun color(own: Long, role: ColorRole?): Long = role?.let { theme.color(it) } ?: own
+
+    fun font(own: FontKey, role: FontRole?): FontKey = role?.let { theme.font(it) } ?: own
+
+    /** Empty template slots, left to right. */
+    fun slots(): List<PhotoItem> = items.filterIsInstance<PhotoItem>().filter { it.isEmpty }.sortedWith(compareBy({ slideAt(it.frame.cx) }, { it.frame.top }, { it.frame.left }))
 
     /** Adds an empty slide after [index] (−1 = at the start), pushing everything after it right. */
     fun insertSlide(index: Int): Project {
@@ -305,4 +405,19 @@ data class Project(
             item.withFrame(item.frame.moved((newIndexOf[old] - old) * slideW.toFloat(), 0f))
         })
     }
+}
+
+fun Item.withAnim(a: Anim?): Item = when (this) {
+    is PhotoItem -> copy(anim = a)
+    is TextItem -> copy(anim = a)
+    is ShapeItem -> copy(anim = a)
+    is RouteItem -> copy(anim = a)
+}
+
+/** The same item under a new id (duplicating, templates). */
+fun Item.withId(id: String): Item = when (this) {
+    is PhotoItem -> copy(id = id)
+    is TextItem -> copy(id = id)
+    is ShapeItem -> copy(id = id)
+    is RouteItem -> copy(id = id)
 }

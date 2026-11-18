@@ -105,18 +105,20 @@ fun LayoutSheet(
 }
 
 @Composable
-fun BackgroundSheet(bg: Background, photoColors: List<Long>, onPreview: (Background) -> Unit, onDone: (Background) -> Unit) = SheetBody {
+fun BackgroundSheet(bg: Background, theme: io.github.darkxace01.unroll.model.Theme, photoColors: List<Long>, onPreview: (Background) -> Unit, onDone: (Background) -> Unit) = SheetBody {
     SectionLabel("Background")
     ChipRow(BackgroundKind.entries, bg.kind, { if (it == BackgroundKind.Solid) "Colour" else "Gradient" }, { onDone(bg.copy(kind = it)) })
     if (photoColors.isNotEmpty()) {
         SectionLabel("From your photos")
-        ColorRow(bg.color, { onDone(bg.copy(color = it)) }, colors = photoColors)
+        ColorRow(bg.color, { onDone(bg.copy(color = it, colorRole = null)) }, colors = photoColors)
     }
     SectionLabel(if (bg.kind == BackgroundKind.Gradient) "From" else "Colour")
-    ColorRow(bg.color, { onDone(bg.copy(color = it)) })
+    RoleRow(theme, bg.colorRole) { onDone(bg.copy(colorRole = it)) }
+    ColorRow(if (bg.colorRole == null) bg.color else null, { onDone(bg.copy(color = it, colorRole = null)) }, Modifier.padding(top = 8.dp))
     if (bg.kind == BackgroundKind.Gradient) {
         SectionLabel("To")
-        ColorRow(bg.color2, { onDone(bg.copy(color2 = it)) })
+        RoleRow(theme, bg.color2Role) { onDone(bg.copy(color2Role = it)) }
+        ColorRow(if (bg.color2Role == null) bg.color2 else null, { onDone(bg.copy(color2 = it, color2Role = null)) }, Modifier.padding(top = 8.dp))
         SliderRow("Direction", bg.angle, 0f..360f, { onPreview(bg.copy(angle = it)) }, { onDone(bg) }) { "${it.toInt()}°" }
     }
 }
@@ -140,12 +142,22 @@ fun AdjustSheet(item: PhotoItem, onPreview: (PhotoItem) -> Unit, onDone: () -> U
 }
 
 @Composable
-fun PhotoStyleSheet(item: PhotoItem, onPreview: (PhotoItem) -> Unit, onDone: () -> Unit, onCommit: (PhotoItem) -> Unit, onReplace: () -> Unit) = SheetBody {
+fun PhotoStyleSheet(item: PhotoItem, theme: io.github.darkxace01.unroll.model.Theme, onPreview: (PhotoItem) -> Unit, onDone: () -> Unit, onCommit: (PhotoItem) -> Unit, onReplace: () -> Unit) = SheetBody {
     val s = item.style
+    SectionLabel("Mount")
+    ChipRow(io.github.darkxace01.unroll.model.FrameKind.entries, s.frame, { it.label }, { onCommit(item.copy(style = s.copy(frame = it))) })
+    if (s.frame == io.github.darkxace01.unroll.model.FrameKind.Polaroid || s.frame == io.github.darkxace01.unroll.model.FrameKind.Stamp || s.frame == io.github.darkxace01.unroll.model.FrameKind.Film) {
+        SectionLabel("Mount colour")
+        RoleRow(theme, s.mountRole) { onCommit(item.copy(style = s.copy(mountRole = it))) }
+        ColorRow(if (s.mountRole == null) s.mountColor else null, { onCommit(item.copy(style = s.copy(mountColor = it, mountRole = null))) }, Modifier.padding(top = 8.dp))
+    }
     SectionLabel("Frame")
     SliderRow("Rounded corners", s.cornerRadius, 0f..300f, { onPreview(item.copy(style = s.copy(cornerRadius = it))) }, onDone) { "${it.toInt()}" }
     SliderRow("Border", s.borderWidth, 0f..60f, { onPreview(item.copy(style = s.copy(borderWidth = it))) }, onDone) { "${it.toInt()}" }
-    if (s.borderWidth > 0f) ColorRow(s.borderColor, { onCommit(item.copy(style = s.copy(borderColor = it))) })
+    if (s.borderWidth > 0f) {
+        RoleRow(theme, s.borderRole) { onCommit(item.copy(style = s.copy(borderRole = it))) }
+        ColorRow(if (s.borderRole == null) s.borderColor else null, { onCommit(item.copy(style = s.copy(borderColor = it, borderRole = null))) }, Modifier.padding(top = 8.dp))
+    }
     SliderRow("Shadow", s.shadow, 0f..80f, { onPreview(item.copy(style = s.copy(shadow = it))) }, onDone) { "${it.toInt()}" }
     SliderRow("Opacity", s.opacity, 0.05f..1f, { onPreview(item.copy(style = s.copy(opacity = it))) }, onDone)
     SectionLabel("Photo")
@@ -176,7 +188,7 @@ private val fontFamilies = mapOf(
 )
 
 @Composable
-fun TextSheet(t: TextItem, onLive: (TextItem) -> Unit, onCommit: (TextItem) -> Unit, onDone: () -> Unit) = SheetBody {
+fun TextSheet(t: TextItem, theme: io.github.darkxace01.unroll.model.Theme, onLive: (TextItem) -> Unit, onCommit: (TextItem) -> Unit, onDone: () -> Unit) = SheetBody {
     OutlinedTextField(
         value = t.text,
         onValueChange = { onLive(t.copy(text = it)) },
@@ -189,13 +201,19 @@ fun TextSheet(t: TextItem, onLive: (TextItem) -> Unit, onCommit: (TextItem) -> U
     Row(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
         LazyVerticalGrid(GridCells.Fixed(3), Modifier.heightIn(max = 200.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             items(FontKey.entries) { f ->
-                FilterChip(selected = t.font == f, onClick = { onCommit(t.copy(font = f)) }, label = { Text(f.label, fontFamily = fontFamilies[f]) })
+                FilterChip(selected = t.fontRole == null && t.font == f, onClick = { onCommit(t.copy(font = f, fontRole = null)) }, label = { Text(f.label, fontFamily = fontFamilies[f]) })
             }
         }
     }
     SliderRow("Size", t.size, 24f..400f, { onLive(t.copy(size = it)) }, onDone) { "${it.toInt()}" }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        io.github.darkxace01.unroll.model.FontRole.entries.forEach { r ->
+            FilterChip(selected = t.fontRole == r, onClick = { onCommit(t.copy(fontRole = r)) }, label = { Text("Theme " + r.name.lowercase(), fontFamily = fontFamilies[theme.font(r)]) })
+        }
+    }
     SectionLabel("Colour")
-    ColorRow(t.color, { onCommit(t.copy(color = it)) })
+    RoleRow(theme, t.colorRole) { onCommit(t.copy(colorRole = it)) }
+    ColorRow(if (t.colorRole == null) t.color else null, { onCommit(t.copy(color = it, colorRole = null)) }, Modifier.padding(top = 8.dp))
     SectionLabel("Style")
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         ChipRow(TextAlign.entries, t.align, { it.name.replace("Start", "Left").replace("End", "Right") }, { onCommit(t.copy(align = it)) })
@@ -204,9 +222,12 @@ fun TextSheet(t: TextItem, onLive: (TextItem) -> Unit, onCommit: (TextItem) -> U
         Text("Bold", Modifier.weight(1f)); Switch(t.bold, { onCommit(t.copy(bold = it)) })
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("Label behind", Modifier.weight(1f)); Switch(t.pillColor != null, { onCommit(t.copy(pillColor = if (it) 0xFFFFFFFF else null)) })
+        Text("Label behind", Modifier.weight(1f)); Switch(t.pillColor != null || t.pillRole != null, { onCommit(t.copy(pillColor = null, pillRole = if (it) io.github.darkxace01.unroll.model.ColorRole.Paper else null)) })
     }
-    if (t.pillColor != null) ColorRow(t.pillColor, { onCommit(t.copy(pillColor = it)) })
+    if (t.pillColor != null || t.pillRole != null) {
+        RoleRow(theme, t.pillRole) { onCommit(t.copy(pillRole = it, pillColor = null)) }
+        ColorRow(t.pillColor, { onCommit(t.copy(pillColor = it, pillRole = null)) }, Modifier.padding(top = 8.dp))
+    }
     SliderRow("Letter spacing", t.letterSpacing, -0.1f..0.5f, { onLive(t.copy(letterSpacing = it)) }, onDone) { "%.2f".format(it) }
     SliderRow("Line height", t.lineHeight, 0.7f..2f, { onLive(t.copy(lineHeight = it)) }, onDone) { "%.2f".format(it) }
     SliderRow("Outline", t.outlineWidth, 0f..12f, { onLive(t.copy(outlineWidth = it)) }, onDone) { "${it.toInt()}" }
@@ -223,9 +244,10 @@ fun StickerSheet(onPick: (ShapeKind) -> Unit) = SheetBody {
 }
 
 @Composable
-fun ShapeSheet(s: ShapeItem, onPreview: (ShapeItem) -> Unit, onDone: () -> Unit, onCommit: (ShapeItem) -> Unit) = SheetBody {
+fun ShapeSheet(s: ShapeItem, theme: io.github.darkxace01.unroll.model.Theme, onPreview: (ShapeItem) -> Unit, onDone: () -> Unit, onCommit: (ShapeItem) -> Unit) = SheetBody {
     SectionLabel("Colour")
-    ColorRow(s.color, { onCommit(s.copy(color = it)) })
+    RoleRow(theme, s.colorRole) { onCommit(s.copy(colorRole = it)) }
+    ColorRow(if (s.colorRole == null) s.color else null, { onCommit(s.copy(color = it, colorRole = null)) }, Modifier.padding(top = 8.dp))
     if (s.kind == ShapeKind.Rect || s.kind == ShapeKind.Circle || s.kind == ShapeKind.Heart || s.kind == ShapeKind.Star) {
         SliderRow("Outline only", s.stroke, 0f..40f, { onPreview(s.copy(stroke = it)) }, onDone) { if (it == 0f) "Filled" else "${it.toInt()}" }
     }

@@ -6,7 +6,7 @@ Every feature is free. No trial, no watermark, no account.
 
 A Grease Pencil Studio app. See [PLAN.md](PLAN.md) for the product plan and roadmap.
 
-## Status: Phase 0–1, "Prove it" and the core editor
+## Status: Phase 0–1 done, Phase 2 under way (templates, routes, motion, video)
 
 **Make a carousel**
 - Pick photos (or share them to Unroll from the gallery) and get a seamless layout straight away: photos in
@@ -29,6 +29,27 @@ A Grease Pencil Studio app. See [PLAN.md](PLAN.md) for the product plan and road
 - Shapes and stickers: box, circle, line, arrow, heart, star, map pin, plane, tape
 - Background: a colour, a gradient, or colours picked from your own photos
 - Unlimited undo and redo. Projects save themselves
+
+**Templates & themes**
+- 16 templates (postcard route, film roll, scrapbook, stamps, boarding pass, magazine, story route, bold
+  type, torn paper, circles, arches and more). Each one stretches to any number of photos, or starts with
+  empty slots you tap to fill. Title, dates and place come from the photos themselves
+- Everything a template makes stays editable. 12 themes: switch one and every colour and font that follows
+  the theme changes with it, or change a single colour or the fonts yourself
+- Photo mounts: polaroid, film strip, stamp, circle, arch, torn paper
+
+**Routes**
+- A route through your photos in one tap, running across the slides so the swipe follows the trip
+- Or a route on one slide, or draw freehand with your finger. Smooth or straight, solid/dashed/dotted, start
+  and end markers, stops, and a plane, car, train, boat, walker or bike riding along it. Drag a point to bend it
+
+**Motion & video**
+- Every item can arrive: fade, rise, drop, pop, slide in, spin, draw itself (routes), type out (text), float.
+  Or animate everything in one tap
+- Play the video right in Preview
+- Export a Reel (9:16 scrolling video) where the camera glides from slide to slide and the route draws
+  itself ahead of it, or an animated carousel: one clip per moving slide, and each slide's route carries on
+  from where the last slide's left off
 
 **Seams, checked**
 - Dashed lines show exactly where Instagram cuts, with slide numbers

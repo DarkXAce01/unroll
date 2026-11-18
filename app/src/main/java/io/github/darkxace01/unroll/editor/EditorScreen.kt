@@ -52,8 +52,9 @@ import io.github.darkxace01.unroll.model.ShapeItem
 import io.github.darkxace01.unroll.model.TextItem
 import io.github.darkxace01.unroll.render.Palette
 import io.github.darkxace01.unroll.ui.maxPick
+import kotlinx.coroutines.launch
 
-private enum class Sheet { Layout, Background, Adjust, Style, Text, Stickers, Shape }
+private enum class Sheet { Layout, Background, Adjust, Style, Text, Stickers, Shape, Theme, Route, Motion, Templates, Lines }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,6 +72,8 @@ fun EditorScreen(projectId: String, onBack: () -> Unit, onPreview: () -> Unit, o
     var sheet by remember { mutableStateOf<Sheet?>(null) }
     var renaming by remember { mutableStateOf(false) }
     var replacing by remember { mutableStateOf<String?>(null) }
+    var drawing by remember { mutableStateOf(false) }
+    var routePoint by remember { mutableStateOf<Int?>(null) }
     val screenW = with(LocalDensity.current) { LocalConfiguration.current.screenWidthDp.dp.toPx() }
 
     val p = project ?: return Box(Modifier.fillMaxSize())
@@ -87,8 +90,8 @@ fun EditorScreen(projectId: String, onBack: () -> Unit, onPreview: () -> Unit, o
         replacing = null
     }
 
-    BackHandler(enabled = cropping != null || selected != null) {
-        if (cropping != null) vm.crop(null) else vm.select(null)
+    BackHandler(enabled = cropping != null || selected != null || drawing) {
+        if (drawing) drawing = false else if (cropping != null) vm.crop(null) else vm.select(null)
     }
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().navigationBarsPadding()) {
@@ -117,10 +120,20 @@ fun EditorScreen(projectId: String, onBack: () -> Unit, onPreview: () -> Unit, o
             onPreview = vm::preview,
             onCommit = vm::endGesture,
             modifier = Modifier.weight(1f).fillMaxWidth(),
+            drawing = drawing,
+            onDrawn = { pts -> vm.addDrawing(pts, null) },
+            onEmptySlot = { id ->
+                replacing = id
+                pickOne.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            },
+            onPoint = { routePoint = it },
         )
 
         NoticeBar(notices, onFix = vm::fixCut, onFixAll = vm::fixAllCuts, onShow = vm::select)
 
+        if (drawing) {
+            Hint("Draw with your finger: across slides, around photos, anything. Each line can be styled and animated after.") { drawing = false }
+        }
         if (cropping != null) {
             Hint("Drag and pinch to move the photo in its frame. Tap outside when done.") { vm.crop(null) }
         }
@@ -135,6 +148,8 @@ fun EditorScreen(projectId: String, onBack: () -> Unit, onPreview: () -> Unit, o
                     Tool("Crop") { vm.crop(if (cropping == item.id) null else item.id) }
                     Tool("Adjust") { sheet = Sheet.Adjust }
                     Tool("Frame") { sheet = Sheet.Style }
+                    Tool("Replace") { replacing = item.id; pickOne.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+                    Tool("Motion") { sheet = Sheet.Motion }
                     Tool("Front") { vm.front(item.id) }
                     Tool("Back") { vm.back(item.id) }
                     Tool("Copy") { vm.duplicate(item.id) }
@@ -142,6 +157,7 @@ fun EditorScreen(projectId: String, onBack: () -> Unit, onPreview: () -> Unit, o
                 }
                 is TextItem -> {
                     Tool("Edit") { sheet = Sheet.Text }
+                    Tool("Motion") { sheet = Sheet.Motion }
                     Tool("Front") { vm.front(item.id) }
                     Tool("Back") { vm.back(item.id) }
                     Tool("Copy") { vm.duplicate(item.id) }
@@ -149,16 +165,30 @@ fun EditorScreen(projectId: String, onBack: () -> Unit, onPreview: () -> Unit, o
                 }
                 is ShapeItem -> {
                     Tool("Colour") { sheet = Sheet.Shape }
+                    Tool("Motion") { sheet = Sheet.Motion }
+                    Tool("Front") { vm.front(item.id) }
+                    Tool("Back") { vm.back(item.id) }
+                    Tool("Copy") { vm.duplicate(item.id) }
+                    Tool("Delete") { vm.delete(item.id) }
+                }
+                is io.github.darkxace01.unroll.model.RouteItem -> {
+                    Tool("Style") { sheet = Sheet.Route }
+                    Tool("Add bend") { vm.routeAddPoint(item.id) }
+                    Tool("Motion") { sheet = Sheet.Motion }
                     Tool("Front") { vm.front(item.id) }
                     Tool("Back") { vm.back(item.id) }
                     Tool("Copy") { vm.duplicate(item.id) }
                     Tool("Delete") { vm.delete(item.id) }
                 }
                 null -> {
+                    Tool("Templates") { sheet = Sheet.Templates }
+                    Tool("Theme") { sheet = Sheet.Theme }
                     Tool("Photos") { pickOnto = null; pickMany.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
                     Tool("Photo here") { pickOnto = slide(); pickMany.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
                     Tool("Text") { vm.addText(slide()); sheet = Sheet.Text }
                     Tool("Stickers") { sheet = Sheet.Stickers }
+                    Tool("Routes & lines") { sheet = Sheet.Lines }
+                    Tool("Motion") { sheet = Sheet.Motion }
                     Tool("Layout") { sheet = Sheet.Layout }
                     Tool("Background") { sheet = Sheet.Background }
                 }
@@ -184,18 +214,46 @@ fun EditorScreen(projectId: String, onBack: () -> Unit, onPreview: () -> Unit, o
                 Sheet.Background -> {
                     var colors by remember { mutableStateOf<List<Long>>(emptyList()) }
                     LaunchedEffect(p.id) { colors = Palette.fromPhotos(app, p) }
-                    BackgroundSheet(p.background, colors, onPreview = vm::previewBackground, onDone = vm::background)
+                    BackgroundSheet(p.background, p.theme, colors, onPreview = vm::previewBackground, onDone = vm::background)
                 }
                 Sheet.Adjust -> (cur as? PhotoItem)?.let { AdjustSheet(it, { n -> vm.previewItem(n) }, vm::endGesture, { n -> vm.updateItem(n) }) }
                 Sheet.Style -> (cur as? PhotoItem)?.let {
-                    PhotoStyleSheet(it, { n -> vm.previewItem(n) }, vm::endGesture, { n -> vm.updateItem(n) }, onReplace = {
+                    PhotoStyleSheet(it, p.theme, { n -> vm.previewItem(n) }, vm::endGesture, { n -> vm.updateItem(n) }, onReplace = {
                         replacing = it.id
                         pickOne.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     })
                 }
-                Sheet.Text -> (cur as? TextItem)?.let { TextSheet(it, onLive = { n -> vm.updateText(n, live = true) }, onCommit = { n -> vm.updateText(n) }, onDone = vm::endGesture) }
+                Sheet.Text -> (cur as? TextItem)?.let { TextSheet(it, p.theme, onLive = { n -> vm.updateText(n, live = true) }, onCommit = { n -> vm.updateText(n) }, onDone = vm::endGesture) }
                 Sheet.Stickers -> StickerSheet { k -> vm.addShape(slide(), k); sheet = Sheet.Shape }
-                Sheet.Shape -> (cur as? ShapeItem)?.let { ShapeSheet(it, { n -> vm.previewItem(n) }, vm::endGesture, { n -> vm.updateItem(n) }) }
+                Sheet.Shape -> (cur as? ShapeItem)?.let { ShapeSheet(it, p.theme, { n -> vm.previewItem(n) }, vm::endGesture, { n -> vm.updateItem(n) }) }
+                Sheet.Theme -> ThemeSheet(p, onTheme = vm::theme, onColor = vm::themeColor, onFonts = vm::fonts)
+                Sheet.Route -> (cur as? io.github.darkxace01.unroll.model.RouteItem)?.let {
+                    RouteSheet(it, p, routePoint, { n -> vm.previewItem(n) }, vm::endGesture, { n -> vm.updateItem(n) },
+                        onAddPoint = { vm.routeAddPoint(it.id) }, onRemovePoint = { i -> vm.routeRemovePoint(it.id, i); routePoint = null })
+                }
+                Sheet.Motion -> {
+                    if (cur != null) MotionSheet(cur, { a -> vm.previewAnim(cur.id, a) }, vm::endGesture, { a -> vm.animate(cur.id, a) }, onAll = vm::autoAnimate, onNone = vm::stillAll)
+                    else MotionAll(onAll = { vm.autoAnimate(); sheet = null }, onNone = { vm.stillAll(); sheet = null }, onPreview = { sheet = null; onPreview() })
+                }
+                Sheet.Templates -> {
+                    Text(
+                        "Rebuilds this carousel in the template's style, keeping your photos.",
+                        style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 20.dp),
+                    )
+                    val scope = androidx.compose.runtime.rememberCoroutineScope()
+                    io.github.darkxace01.unroll.templates.TemplateGallery(onPick = { t ->
+                        scope.launch {
+                            val photos = io.github.darkxace01.unroll.model.Arranger.photosOf(p).filter { it.uri.isNotEmpty() }
+                            vm.applyTemplate(t, io.github.darkxace01.unroll.data.NewProject.tripInfo(app, photos))
+                            sheet = null
+                        }
+                    }, maxHeight = 640.dp)
+                }
+                Sheet.Lines -> LinesSheet(
+                    onConnect = { vm.connectPhotos(); sheet = Sheet.Route },
+                    onRoute = { vm.addRoute(slide()); sheet = Sheet.Route },
+                    onDraw = { drawing = true; vm.select(null); sheet = null },
+                )
                 null -> Unit
             }
         }
@@ -210,6 +268,28 @@ fun EditorScreen(projectId: String, onBack: () -> Unit, onPreview: () -> Unit, o
             confirmButton = { TextButton(onClick = { vm.rename(name); renaming = false }) { Text("Save") } },
             dismissButton = { TextButton(onClick = { renaming = false }) { Text("Cancel") } },
         )
+    }
+}
+
+@Composable
+private fun LinesSheet(onConnect: () -> Unit, onRoute: () -> Unit, onDraw: () -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Routes & lines", style = MaterialTheme.typography.titleMedium)
+        androidx.compose.material3.OutlinedButton(onClick = onConnect, modifier = Modifier.fillMaxWidth()) { Text("Route through my photos") }
+        androidx.compose.material3.OutlinedButton(onClick = onRoute, modifier = Modifier.fillMaxWidth()) { Text("A route on this slide") }
+        androidx.compose.material3.OutlinedButton(onClick = onDraw, modifier = Modifier.fillMaxWidth()) { Text("Draw freehand") }
+        Text("Routes draw themselves in videos: in a Reel the line leads from slide to slide, and in an animated carousel each slide continues it.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun MotionAll(onAll: () -> Unit, onNone: () -> Unit, onPreview: () -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Motion", style = MaterialTheme.typography.titleMedium)
+        Text("Select anything to choose how it arrives. Or set the whole carousel at once:", style = MaterialTheme.typography.bodySmall)
+        androidx.compose.material3.OutlinedButton(onClick = onAll, modifier = Modifier.fillMaxWidth()) { Text("Animate everything") }
+        androidx.compose.material3.OutlinedButton(onClick = onNone, modifier = Modifier.fillMaxWidth()) { Text("Keep everything still") }
+        androidx.compose.material3.Button(onClick = onPreview, modifier = Modifier.fillMaxWidth()) { Text("Watch it play") }
     }
 }
 

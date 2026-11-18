@@ -151,6 +151,7 @@ Instagram preview → "Post". That's the hook.
 | **0. Prove it** | Project skeleton, canvas model, place photos across N slides, export slices, share to Instagram. | A 5-slide trip carousel posted from your phone looks seamless on Instagram at full quality. |
 | **1. Core editor (MVP)** | All MVP rows in A, B, C, D, E: free placement, grids, panorama split, text, photo editor, backgrounds, undo, seam safety, Instagram preview, auto-layout, projects. | Mom can build and post her whole trip without help. |
 | **2. Launch set (v1)** | Trip mode, map slide, templates, stickers, cut-out, video layers, scroll video export, tip jar, opt-in rewarded ad, foss/play flavors. | Feature parity with SCRL plus the "+" rows. |
+| **2a. Templates & motion** (in progress) | Themes with colour/font roles, 16 stretchy templates with empty slots, photo mounts, routes (auto through photos, per slide, freehand) with vehicles, per-item motion, live player, Reel + animated-carousel MP4 export. | Done in code, 85 tests; next: more templates, map slide, stickers pack. |
 | **3. UI pass** | Grease Pencil Studio look: signature kit from `../album/docs/grease-pencil/`, Pencil red accent, Attic's taste rules (true neutrals, one accent, sentence case, no gradients/glass in chrome). Roborazzi critique loop. | Screens pass the taste rules; looks like a sibling of Attic and Pixnix. |
 | **4. Ship** | Store listing, privacy policy, Data Safety, F-Droid metadata, README. | Live on Play (and F-Droid for foss). |
 | **v2+** | Multi-post grid, masks, overlays, project sharing, more templates. | |
@@ -181,3 +182,13 @@ Android first (that's where the GreasePencil stack is). iOS only if the Android 
 
 - **Name.** Must not be SCRL-like. Ideas: *Panlo*, *Swipeline*, *Seamly*, *Trailpost*, *Unroll*.
 - **Repo** public under DarkXAce01 like the others? Licence GPL-3.0 like Pixnix?
+
+## 10. Research notes (2026-11-18): what the creative apps offer
+
+- **Unfold, Mojo**: hundreds of animated story/carousel templates, almost all behind a subscription. Text
+  and photos animate in; templates restyle with brand colours. Unroll copies the idea (themes + motion),
+  not their designs, and keeps it free.
+- **Route/journey posts** (e.g. Jitter's "The Route" template): a line drawing itself from place to place.
+  In a carousel the trick is one continuous line across the slides, so each swipe continues it.
+- **Seamless carousels** (SCRL, guides like Krumzi's): the panorama + elements crossing the cut is the core.
+- **Scrapbook look** is what travel posts use most: polaroids, tape, stamps, film strips, handwriting.

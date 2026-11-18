@@ -23,6 +23,24 @@ import io.github.darkxace01.unroll.model.Seams
 import io.github.darkxace01.unroll.model.ShapeItem
 import io.github.darkxace01.unroll.model.ShapeKind
 import io.github.darkxace01.unroll.model.TextItem
+import io.github.darkxace01.unroll.model.Anim
+import io.github.darkxace01.unroll.model.AnimKind
+import io.github.darkxace01.unroll.model.Cap
+import io.github.darkxace01.unroll.model.ColorRole
+import io.github.darkxace01.unroll.model.Dash
+import io.github.darkxace01.unroll.model.FontKey
+import io.github.darkxace01.unroll.model.FontRole
+import io.github.darkxace01.unroll.model.Point
+import io.github.darkxace01.unroll.model.RouteItem
+import io.github.darkxace01.unroll.model.RouteMath
+import io.github.darkxace01.unroll.model.Template
+import io.github.darkxace01.unroll.model.Templates
+import io.github.darkxace01.unroll.model.Theme
+import io.github.darkxace01.unroll.model.Timeline
+import io.github.darkxace01.unroll.model.TripInfo
+import io.github.darkxace01.unroll.model.Vehicle
+import io.github.darkxace01.unroll.model.withAnim
+import io.github.darkxace01.unroll.model.withId
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -109,7 +127,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         val cuts = Seams.warnings(p).distinctBy { it.itemId to it.cut }.map { w ->
             Notice.OnCut(w.itemId, w.cut, w.kind, (Seams.nudge(p, w.itemId) ?: 0f) != 0f)
         }
-        val soft = p.items.filterIsInstance<PhotoItem>().filter { PhotoGeometry.sharpness(it) < 0.6f }.map { Notice.Soft(it.id) }
+        val soft = p.items.filterIsInstance<PhotoItem>().filter { !it.isEmpty && PhotoGeometry.sharpness(it) < 0.6f }.map { Notice.Soft(it.id) }
         return cuts + soft
     }
 
@@ -163,12 +181,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         val p = _project.value ?: return
         val item = p.item(id) ?: return
         val nid = newId()
-        val f = item.frame.moved(48f, 48f)
-        val copy: Item = when (item) {
-            is PhotoItem -> item.copy(id = nid, frame = f)
-            is TextItem -> item.copy(id = nid, frame = f)
-            is ShapeItem -> item.copy(id = nid, frame = f)
-        }
+        val copy = item.withId(nid).let { it.withFrame(it.frame.moved(48f, 48f)) }
         commit(p.add(copy))
         select(nid)
     }
@@ -232,10 +245,10 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     fun addText(slide: Int, text: String = "Your words"): String {
         val p = _project.value ?: return ""
         val id = newId()
-        val base = TextItem(id, Frame(0f, 0f, p.slideW * 0.8f, 100f), text, size = 84f, color = 0xFF1D1E22)
-        val w = (app.renderer.textWidth(base) + app.renderer.pad(base) * 2 + 8).coerceIn(160f, p.slideW * 0.9f)
+        val base = TextItem(id, Frame(0f, 0f, p.slideW * 0.8f, 100f), text, size = 84f, colorRole = ColorRole.Ink, fontRole = FontRole.Head)
+        val w = (app.renderer.textWidth(base, p) + app.renderer.pad(base) * 2 + 8).coerceIn(160f, p.slideW * 0.9f)
         val sized = base.copy(frame = base.frame.copy(w = w))
-        val h = app.renderer.textHeight(sized)
+        val h = app.renderer.textHeight(sized, p)
         commit(p.add(sized.copy(frame = Frame(slide * p.slideW + p.slideW / 2f, p.slideH / 2f, w, h))))
         select(id)
         return id
@@ -243,7 +256,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
 
     /** Applies a text change and resizes the box's height to the text. */
     fun updateText(t: TextItem, live: Boolean = false) {
-        val h = app.renderer.textHeight(t)
+        val h = app.renderer.textHeight(t, _project.value)
         val fitted = t.copy(frame = t.frame.copy(h = h))
         if (live) previewItem(fitted) else updateItem(fitted)
     }
@@ -258,7 +271,75 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             ShapeKind.Pin -> 120f to 170f
             else -> 220f to 220f
         }
-        commit(p.add(ShapeItem(id, Frame(slide * p.slideW + p.slideW / 2f, p.slideH / 2f, w, h), kind, color = if (kind == ShapeKind.Tape) 0xFFEFE3C2 else 0xFF1D1E22)))
+        commit(p.add(ShapeItem(id, Frame(slide * p.slideW + p.slideW / 2f, p.slideH / 2f, w, h), kind, colorRole = if (kind == ShapeKind.Tape) ColorRole.Paper else ColorRole.Accent)))
         select(id)
     }
+
+    // Templates & themes
+
+    /** Rebuilds the carousel from a template, keeping its photos (in order) and the shape. */
+    fun applyTemplate(t: Template, info: TripInfo) {
+        val p = _project.value ?: return
+        val photos = Arranger.photosOf(p).filter { it.uri.isNotEmpty() }.map { it.copy(faces = it.faces ?: faceCache[it.uri]) }
+        val built = Templates.build(t, photos, info, p.id, p.name, p.created, ::newId, theme = p.theme.takeIf { p.template != null } ?: t.theme)
+        commit(built.copy(updated = p.updated))
+        select(null)
+    }
+
+    fun theme(t: Theme) = edit { it.copy(theme = t) }
+
+    /** Head and body fonts of the theme. */
+    fun fonts(head: FontKey, body: FontKey) = edit { it.copy(theme = it.theme.copy(head = head, body = body)) }
+
+    fun themeColor(role: ColorRole, color: Long) = edit { p ->
+        val t = p.theme
+        p.copy(theme = when (role) {
+            ColorRole.Background -> t.copy(background = color)
+            ColorRole.Paper -> t.copy(paper = color)
+            ColorRole.Ink -> t.copy(ink = color)
+            ColorRole.Accent -> t.copy(accent = color)
+            ColorRole.Muted -> t.copy(muted = color)
+        })
+    }
+
+    // Routes
+
+    /** A route weaving through every photo, under them, with a plane on it. */
+    fun connectPhotos() {
+        val p = _project.value ?: return
+        val boxes = p.items.filterIsInstance<PhotoItem>().map { it.frame.bounds() }
+        if (boxes.isEmpty()) return
+        val id = newId()
+        commit(p.addBottom(RouteItem(id, RouteMath.through(boxes, p.height.toFloat()), stops = true, vehicle = Vehicle.Plane, start = Cap.Ring, anim = Anim(AnimKind.Draw, 0f, 1.6f))))
+        select(id)
+    }
+
+    /** A straight-ish route across the slide in view, to bend into shape. */
+    fun addRoute(slide: Int) {
+        val p = _project.value ?: return
+        val x = slide * p.slideW.toFloat()
+        val id = newId()
+        val pts = listOf(Point(x + p.slideW * 0.15f, p.slideH * 0.7f), Point(x + p.slideW * 0.5f, p.slideH * 0.55f), Point(x + p.slideW * 0.85f, p.slideH * 0.7f))
+        commit(p.add(RouteItem(id, pts, vehicle = Vehicle.Plane, anim = Anim(AnimKind.Draw, 0f, 1.6f))))
+        select(id)
+    }
+
+    /** A freehand line from the draw tool. */
+    fun addDrawing(points: List<Point>, style: RouteItem?) {
+        val p = _project.value ?: return
+        val simple = RouteMath.simplify(points, 6f)
+        if (simple.size < 2) return
+        val base = style ?: RouteItem("", emptyList(), dash = Dash.Solid, start = Cap.None, end = Cap.None, width = 10f, colorRole = ColorRole.Accent)
+        commit(p.add(base.copy(id = newId(), points = simple, smooth = true, vehicle = Vehicle.None, anim = Anim(AnimKind.Draw, 0f, 1.0f))))
+    }
+
+    fun routeAddPoint(id: String) { (_project.value?.item(id) as? RouteItem)?.let { updateItem(RouteMath.addPoint(it)) } }
+    fun routeRemovePoint(id: String, index: Int) { (_project.value?.item(id) as? RouteItem)?.let { updateItem(RouteMath.removePoint(it, index)) } }
+
+    // Motion
+
+    fun animate(id: String, a: Anim?) = edit { it.animate(id, a) }
+    fun previewAnim(id: String, a: Anim?) { _project.value?.let { preview(it.animate(id, a)) } }
+    fun autoAnimate() = edit { Timeline.autoAnimate(it) }
+    fun stillAll() = edit { p -> p.copy(items = p.items.map { it.withAnim(null) }) }
 }

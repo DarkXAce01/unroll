@@ -29,6 +29,7 @@ class UnrollApp : Application() {
     val fonts by lazy { Fonts(this) }
     val renderer by lazy { Renderer(fonts) }
     val exporter by lazy { Exporter(this, photos, renderer) }
+    val video by lazy { io.github.darkxace01.unroll.render.VideoExporter(this, photos, renderer, exporter) }
     val faces: FaceFinder by lazy { createFaceFinder(this) }
     val ads: SupportAds by lazy { createSupportAds(this) }
     val tips: TipJar by lazy { createTipJar(this, scope) { _, count -> prefs.addSupport(count) } }

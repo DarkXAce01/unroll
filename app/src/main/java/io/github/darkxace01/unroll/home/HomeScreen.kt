@@ -53,7 +53,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun HomeScreen(onOpen: (String) -> Unit, onSettings: () -> Unit) {
+fun HomeScreen(onOpen: (String) -> Unit, onSettings: () -> Unit, onTemplates: () -> Unit) {
     val app = LocalContext.current.app
     val scope = rememberCoroutineScope()
     val projects by app.store.projects.collectAsStateWithLifecycle()
@@ -81,6 +81,7 @@ fun HomeScreen(onOpen: (String) -> Unit, onSettings: () -> Unit) {
             Button(onClick = { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !busy) {
                 Text(if (busy) "Laying out…" else "New carousel")
             }
+            OutlinedButton(onClick = onTemplates) { Text("Templates") }
             OutlinedButton(onClick = { scope.launch { onOpen(NewProject.blank(app).id) } }) { Text("Blank") }
         }
         if (projects.isEmpty()) {

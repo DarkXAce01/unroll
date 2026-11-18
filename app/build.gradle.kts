@@ -82,6 +82,8 @@ android {
             all {
                 it.maxHeapSize = "1536m"
                 it.jvmArgs("--add-opens=java.base/jdk.internal.access=ALL-UNNAMED")
+                // Renders every template to build/outputs/templates: ./gradlew testPlayDebugUnitTest -PtemplateSheets
+                it.systemProperty("unroll.templateSheets", project.hasProperty("templateSheets").toString())
             }
         }
     }

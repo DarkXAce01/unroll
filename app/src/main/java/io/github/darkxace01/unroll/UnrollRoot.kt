@@ -24,6 +24,7 @@ private sealed interface Route {
     data class Preview(val id: String) : Route
     data class Export(val id: String) : Route
     data object Settings : Route
+    data object Templates : Route
 }
 
 /** A plain back stack: the app is small enough not to need a navigation library. */
@@ -48,7 +49,8 @@ fun UnrollRoot(shared: List<Uri>, onSharedDone: () -> Unit) {
     BackHandler(enabled = stack.size > 1) { back() }
 
     when (val r = stack.last()) {
-        Route.Home -> HomeScreen(onOpen = { go(Route.Editor(it)) }, onSettings = { go(Route.Settings) })
+        Route.Home -> HomeScreen(onOpen = { go(Route.Editor(it)) }, onSettings = { go(Route.Settings) }, onTemplates = { go(Route.Templates) })
+        Route.Templates -> io.github.darkxace01.unroll.templates.TemplatesScreen(onBack = ::back, onOpen = { id -> back(); go(Route.Editor(id)) })
         is Route.Editor -> EditorScreen(r.id, onBack = ::back, onPreview = { go(Route.Preview(r.id)) }, onExport = { go(Route.Export(r.id)) }, vm = editor)
         is Route.Preview -> project?.let { PreviewScreen(it, onBack = ::back, onExport = { back(); go(Route.Export(r.id)) }) }
         is Route.Export -> project?.let { ExportScreen(it, onBack = ::back) }

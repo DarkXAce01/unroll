@@ -98,6 +98,30 @@ class RenderTest {
         assertEquals(Color.RED, slide.getPixel(540, 50))
     }
 
+    @Test fun routeIsDrawnInItsRoleColour() {
+        val p = Project("p", "p", Ratio.Square, slides = 1, theme = io.github.darkxace01.unroll.model.Themes.Paper, items = listOf(
+            io.github.darkxace01.unroll.model.RouteItem("r", listOf(io.github.darkxace01.unroll.model.Point(100f, 540f), io.github.darkxace01.unroll.model.Point(980f, 540f)),
+                smooth = false, width = 20f, dash = io.github.darkxace01.unroll.model.Dash.Solid, start = io.github.darkxace01.unroll.model.Cap.None, end = io.github.darkxace01.unroll.model.Cap.None,
+                colorRole = io.github.darkxace01.unroll.model.ColorRole.Accent),
+        ))
+        val px = render(p, 1080, 1080, 0f).getPixel(540, 540)
+        assertEquals(io.github.darkxace01.unroll.model.Themes.Paper.accent.toInt(), px)
+        // Half drawn: the far end is still background.
+        val b = Bitmap.createBitmap(1080, 1080, Bitmap.Config.ARGB_8888)
+        renderer.draw(Canvas(b), p, { null }, look = { io.github.darkxace01.unroll.model.Look(reveal = 0.3f) })
+        assertEquals(Color.WHITE, b.getPixel(900, 540))
+        assertEquals(io.github.darkxace01.unroll.model.Themes.Paper.accent.toInt(), b.getPixel(200, 540))
+    }
+
+    @Test fun polaroidLeavesAPaperBorder() {
+        val item = (project.item("a") as PhotoItem).copy(frame = Frame(540f, 540f, 600f, 700f), style = PhotoStyle(frame = io.github.darkxace01.unroll.model.FrameKind.Polaroid))
+        val p = project.copy(slides = 1, items = listOf(item))
+        val bmp = render(p, 1080, 1080, 0f)
+        // Bottom strip of the polaroid is paper, the middle is the photo.
+        assertEquals(p.theme.paper.toInt(), bmp.getPixel(540, 540 + 350 - 40))
+        assertTrue(bmp.getPixel(540, 400) != p.theme.paper.toInt())
+    }
+
     @Test fun textWrapsToItsBox() {
         val t = TextItem("t", Frame(0f, 0f, 300f, 10f), "A long caption that has to wrap", size = 60f)
         assertTrue(renderer.layout(t).lineCount > 1)

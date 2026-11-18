@@ -7,8 +7,28 @@ package io.github.darkxace01.unroll.model
  */
 object PhotoGeometry {
 
+    /**
+     * Where the photo itself sits inside the item, in the item's own coordinates (centre = 0,0). Mounts
+     * like a polaroid take a border; the rest show the photo edge to edge.
+     */
+    fun inner(item: PhotoItem): Box = inner(item.frame.w, item.frame.h, item.style.frame)
+
+    fun inner(w: Float, h: Float, kind: FrameKind): Box {
+        val m = minOf(w, h)
+        val (l, t, r, b) = when (kind) {
+            FrameKind.Polaroid -> listOf(0.055f * w, 0.055f * w, 0.055f * w, 0.2f * w)
+            FrameKind.Film -> listOf(0.03f * w, 0.13f * h, 0.03f * w, 0.13f * h)
+            FrameKind.Stamp -> listOf(0.075f * m, 0.075f * m, 0.075f * m, 0.075f * m)
+            else -> listOf(0f, 0f, 0f, 0f)
+        }
+        return Box(-w / 2 + l, -h / 2 + t, w / 2 - r, h / 2 - b)
+    }
+
     /** The visible window of the source, in 0..1 of its width and height. */
-    fun visible(item: PhotoItem): NormRect = visible(item.srcW, item.srcH, item.frame.w, item.frame.h, item.crop)
+    fun visible(item: PhotoItem): NormRect {
+        val i = inner(item)
+        return visible(item.srcW, item.srcH, i.width, i.height, item.crop)
+    }
 
     fun visible(srcW: Int, srcH: Int, frameW: Float, frameH: Float, crop: Crop): NormRect {
         val sa = srcW.toFloat() / srcH.coerceAtLeast(1)
@@ -30,8 +50,8 @@ object PhotoGeometry {
         var fx = (nx - v.left) / (v.right - v.left)
         val fy = (ny - v.top) / (v.bottom - v.top)
         if (item.crop.flipX) fx = 1f - fx
-        val f = item.frame
-        return f.toCanvas((fx - 0.5f) * f.w, (fy - 0.5f) * f.h)
+        val i = inner(item)
+        return item.frame.toCanvas(i.left + fx * i.width, i.top + fy * i.height)
     }
 
     /**
@@ -57,7 +77,8 @@ object PhotoGeometry {
         val v = visible(item)
         val pxW = (v.right - v.left) * item.srcW
         val pxH = (v.bottom - v.top) * item.srcH
-        return minOf(pxW / item.frame.w.coerceAtLeast(1f), pxH / item.frame.h.coerceAtLeast(1f))
+        val i = inner(item)
+        return minOf(pxW / i.width.coerceAtLeast(1f), pxH / i.height.coerceAtLeast(1f))
     }
 
     /** The frame size that shows the whole photo at its own shape, fitting inside [maxW] × [maxH]. */

@@ -38,7 +38,7 @@ class Exporter(private val context: Context, private val photos: Photos, private
     /** One slide as a bitmap at full size (or scaled by [scale] for thumbnails and the preview). */
     suspend fun renderSlide(p: Project, index: Int, scale: Float = 1f, cache: MutableMap<String, Bitmap?> = HashMap()): Bitmap = withContext(Dispatchers.Default) {
         val slide = Seams.slide(p, index)
-        val onSlide = p.items.filterIsInstance<PhotoItem>().filter { it.frame.bounds().overlaps(slide) }
+        val onSlide = p.items.filterIsInstance<PhotoItem>().filter { !it.isEmpty && it.frame.bounds().overlaps(slide) }
         for (ph in onSlide) {
             val key = "${ph.uri}@${neededScaled(ph, scale)}"
             if (key !in cache) cache[key] = photos.load(ph.uri, neededScaled(ph, scale), useCache = scale < 1f)
@@ -61,7 +61,7 @@ class Exporter(private val context: Context, private val photos: Photos, private
         val c = Canvas(bmp)
         c.scale(scale, scale)
         val loaded = HashMap<String, Bitmap?>()
-        for (ph in p.items.filterIsInstance<PhotoItem>()) {
+        for (ph in p.items.filterIsInstance<PhotoItem>().filterNot { it.isEmpty }) {
             if (ph.uri !in loaded) loaded[ph.uri] = photos.load(ph.uri, (neededSide(ph) * scale).toInt().coerceAtLeast(64), useCache = false)
         }
         renderer.draw(c, p, { loaded[it] })
@@ -119,29 +119,43 @@ object Share {
     const val INSTAGRAM = "com.instagram.android"
 
     fun has(context: Context, pkg: String) = runCatching {
-        context.packageManager.getPackageInfo(pkg, PackageManager.PackageInfoFlags.of(0)); true
+        val pm = context.packageManager
+        if (android.os.Build.VERSION.SDK_INT >= 33) pm.getPackageInfo(pkg, PackageManager.PackageInfoFlags.of(0))
+        else @Suppress("DEPRECATION") pm.getPackageInfo(pkg, 0)
+        true
     }.getOrDefault(false)
 
     /** The slides in order, as one share. Instagram opens its carousel composer with them. */
-    fun intent(uris: List<Uri>, pkg: String? = null): Intent {
+    fun intent(uris: List<Uri>, pkg: String? = null, mime: String = "image/jpeg"): Intent {
         val i = if (uris.size == 1) {
             Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, uris[0])
         } else {
             Intent(Intent.ACTION_SEND_MULTIPLE).putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
         }
-        i.type = if (uris.size > 0) "image/jpeg" else "image/*"
+        i.type = mime
         i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         if (pkg != null) i.setPackage(pkg)
         return i
     }
 
+    /** image/jpeg, video/mp4, or "any" for a carousel mixing both. */
+    fun mimeOf(context: Context, uris: List<Uri>): String {
+        val types = uris.map { context.contentResolver.getType(it) ?: "image/jpeg" }.toSet()
+        return when {
+            types.all { it.startsWith("image/") } -> "image/jpeg"
+            types.all { it.startsWith("video/") } -> "video/mp4"
+            else -> "*/*"
+        }
+    }
+
     fun toInstagram(context: Context, uris: List<Uri>) {
-        val direct = if (has(context, INSTAGRAM)) intent(uris, INSTAGRAM) else null
+        val mime = mimeOf(context, uris)
+        val direct = if (has(context, INSTAGRAM)) intent(uris, INSTAGRAM, mime) else null
         val launched = direct != null && runCatching { context.startActivity(direct.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true }.getOrDefault(false)
         if (!launched) anywhere(context, uris)
     }
 
     fun anywhere(context: Context, uris: List<Uri>) {
-        context.startActivity(Intent.createChooser(intent(uris), null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        context.startActivity(Intent.createChooser(intent(uris, mime = mimeOf(context, uris)), null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 }

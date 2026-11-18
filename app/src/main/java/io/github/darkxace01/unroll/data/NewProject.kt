@@ -6,6 +6,13 @@ import io.github.darkxace01.unroll.model.Arrange
 import io.github.darkxace01.unroll.model.Arranger
 import io.github.darkxace01.unroll.model.NewPhoto
 import io.github.darkxace01.unroll.model.Project
+import io.github.darkxace01.unroll.model.Template
+import io.github.darkxace01.unroll.model.Templates
+import io.github.darkxace01.unroll.model.TripInfo
+import android.location.Geocoder
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -24,13 +31,47 @@ object NewProject {
         return app.store.save(arranged)
     }
 
+    /** A carousel from a template, filled with [uris] (or empty slots to tap and fill when there are none). */
+    suspend fun fromTemplate(app: UnrollApp, t: Template, uris: List<Uri>): Project {
+        val photos = read(app, uris)
+        val now = System.currentTimeMillis()
+        val info = tripInfo(app, photos)
+        val p = Templates.build(t, photos, info, newId(), name(photos).takeIf { photos.isNotEmpty() } ?: t.name, now, ::newId)
+        return app.store.save(p)
+    }
+
+    private suspend fun read(app: UnrollApp, uris: List<Uri>) = uris.mapNotNull { u ->
+        app.photos.keep(u)
+        app.photos.info(u)?.let { NewPhoto(u.toString(), it.width, it.height, it.takenAt, it.lat, it.lng) }
+    }.sortedWith(compareBy(nullsLast()) { it.takenAt })
+
+    /** Dates, number of days and (where the phone can tell) the place, from the photos themselves. */
+    suspend fun tripInfo(app: UnrollApp, photos: List<NewPhoto>, title: String? = null): TripInfo {
+        val dates = photos.mapNotNull { it.takenAt }
+        val days = if (dates.isEmpty()) 0 else ((dates.max() - dates.min()) / 86_400_000L).toInt() + 1
+        val place = photos.firstOrNull { it.lat != null }?.let { placeName(app, it.lat!!, it.lng!!) }.orEmpty()
+        return TripInfo(title = title ?: place.ifEmpty { "Our trip" }, dates = if (dates.isEmpty()) "" else name(photos), place = place, days = days)
+    }
+
+    /** The town for a spot, using the phone's own geocoder. Empty if it can't (offline, no service). */
+    @Suppress("DEPRECATION")
+    private suspend fun placeName(app: UnrollApp, lat: Double, lng: Double): String = withContext(Dispatchers.IO) {
+        if (!Geocoder.isPresent()) return@withContext ""
+        withTimeoutOrNull(3000) {
+            runCatching {
+                val a = Geocoder(app, Locale.getDefault()).getFromLocation(lat, lng, 1)?.firstOrNull()
+                a?.locality ?: a?.subAdminArea ?: a?.adminArea ?: a?.countryName
+            }.getOrNull()
+        }.orEmpty()
+    }
+
     suspend fun blank(app: UnrollApp): Project {
         val now = System.currentTimeMillis()
         return app.store.save(Project(id = newId(), name = "Carousel ${SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(now))}", ratio = app.prefs.now.ratio, slides = 3, created = now))
     }
 
     /** "12–16 Nov" from the photos' dates, or today's date. */
-    private fun name(photos: List<NewPhoto>): String {
+    fun name(photos: List<NewPhoto>): String {
         val dates = photos.mapNotNull { it.takenAt }
         val day = SimpleDateFormat("d MMM", Locale.getDefault())
         if (dates.isEmpty()) return "Carousel ${day.format(Date())}"

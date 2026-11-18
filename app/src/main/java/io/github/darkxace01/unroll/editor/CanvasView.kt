@@ -34,7 +34,10 @@ import io.github.darkxace01.unroll.model.Frame
 import io.github.darkxace01.unroll.model.Item
 import io.github.darkxace01.unroll.model.PhotoGeometry
 import io.github.darkxace01.unroll.model.PhotoItem
+import io.github.darkxace01.unroll.model.Point
 import io.github.darkxace01.unroll.model.Project
+import io.github.darkxace01.unroll.model.RouteItem
+import io.github.darkxace01.unroll.model.RouteMath
 import io.github.darkxace01.unroll.model.Seams
 import io.github.darkxace01.unroll.model.Snap
 import io.github.darkxace01.unroll.model.TextItem
@@ -87,15 +90,23 @@ fun CanvasView(
     onPreview: (Project) -> Unit,
     onCommit: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Draw tool on: a finger draws a line instead of moving things. */
+    drawing: Boolean = false,
+    onDrawn: (List<Point>) -> Unit = {},
+    /** An empty template slot was tapped: pick a photo for it. */
+    onEmptySlot: (String) -> Unit = {},
+    /** A route's point was touched (so "remove point" knows which). */
+    onPoint: (Int?) -> Unit = {},
 ) {
     val context = LocalContext.current
     val app = context.app
     val density = LocalDensity.current.density
     val bitmaps = remember { mutableStateMapOf<String, Bitmap>() }
     var guides by remember { mutableStateOf<List<Snap.Guide>>(emptyList()) }
+    var ink by remember { mutableStateOf<List<Point>>(emptyList()) }
 
     // Screen-sized copies of each photo; full size is only for export.
-    val uris = project.items.filterIsInstance<PhotoItem>().map { it.uri }.distinct()
+    val uris = project.items.filterIsInstance<PhotoItem>().filterNot { it.isEmpty }.map { it.uri }.distinct()
     LaunchedEffect(uris) {
         for (u in uris) if (u !in bitmaps) app.photos.load(u, 1600)?.let { bitmaps[u] = it }
     }
@@ -104,6 +115,7 @@ fun CanvasView(
     val sel by rememberUpdatedState(selectedId)
     val crop by rememberUpdatedState(croppingId)
     val snapOn by rememberUpdatedState(snapping)
+    val drawOn by rememberUpdatedState(drawing)
 
     val cutPaint = remember {
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -129,7 +141,10 @@ fun CanvasView(
         }
         val handleR = 22 * density
 
-        fun handles(f: Frame, isText: Boolean): Map<Handle, Offset> {
+        fun handles(item: Item): Map<Handle, Offset> {
+            if (item is RouteItem) return emptyMap()
+            val f = item.frame
+            val isText = item is TextItem
             val s = viewport.scale
             val local = buildMap {
                 put(Handle.Right, (f.w / 2) to 0f)
@@ -150,12 +165,33 @@ fun CanvasView(
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val p0 = latest
                         val start = viewport.toCanvas(down.position)
+                        if (drawOn) {
+                            // Freehand: collect the finger's path in canvas units.
+                            val pts = mutableListOf(Point(start.x, start.y))
+                            while (true) {
+                                val e = awaitPointerEvent()
+                                val ch = e.changes.firstOrNull() ?: break
+                                if (!ch.pressed) break
+                                val c = viewport.toCanvas(ch.position)
+                                pts += Point(c.x, c.y)
+                                ink = pts.toList()
+                                ch.consume()
+                            }
+                            ink = emptyList()
+                            if (pts.size > 2) onDrawn(pts)
+                            return@awaitEachGesture
+                        }
+                        val tolerance = 16 * density / viewport.scale
                         val selItem = sel?.let { p0.item(it) }
                         val handle = selItem?.let { item ->
-                            handles(item.frame, item is TextItem).entries.firstOrNull { (_, o) -> hypot(o.x - down.position.x, o.y - down.position.y) < handleR }?.key
+                            handles(item).entries.firstOrNull { (_, o) -> hypot(o.x - down.position.x, o.y - down.position.y) < handleR }?.key
                         }
-                        val onSelected = selItem != null && (handle != null || selItem.frame.contains(start.x, start.y))
-                        val tapTarget = p0.hit(start.x, start.y)
+                        val pointIndex = (selItem as? RouteItem)?.points?.indexOfFirst { pt ->
+                            val o = viewport.toScreen(pt.x, pt.y); hypot(o.x - down.position.x, o.y - down.position.y) < handleR
+                        }?.takeIf { it >= 0 }
+                        if (selItem is RouteItem) onPoint(pointIndex)
+                        val onSelected = selItem != null && (handle != null || pointIndex != null || selItem.hits(start.x, start.y, tolerance))
+                        val tapTarget = p0.hit(start.x, start.y, tolerance)
                         var working: Item? = selItem
                         var moved = false
                         var travel = 0f
@@ -187,6 +223,11 @@ fun CanvasView(
                                     viewport.offsetX += pan.x
                                     viewport.offsetY += pan.y
                                     viewport.clamp(latest, w, h)
+                                }
+                                pointIndex != null && item is RouteItem -> {
+                                    val pos = viewport.toCanvas(event.changes.first().position)
+                                    working = RouteMath.movePoint(item, pointIndex, Point(pos.x, pos.y))
+                                    onPreview(latest.replace(working))
                                 }
                                 cropMode && item is PhotoItem -> {
                                     // Slide and zoom the photo inside its frame.
@@ -232,7 +273,7 @@ fun CanvasView(
                                             f.copy(rotation = if (snapOn) Snap.rotation(a) else a)
                                         }
                                     }
-                                    working = fitText(app, item.withFrame(nf), handle)
+                                    working = fitText(app, latest, item.withFrame(nf), handle)
                                     onPreview(latest.replace(working))
                                 }
                                 else -> {
@@ -268,7 +309,10 @@ fun CanvasView(
                             // A tap.
                             val now = System.currentTimeMillis()
                             val id = tapTarget?.id
-                            if (id != null && id == lastTapId && now - lastTapAt < 350 && tapTarget is PhotoItem) {
+                            if (tapTarget is PhotoItem && tapTarget.isEmpty) {
+                                onSelect(id)
+                                onEmptySlot(tapTarget.id)
+                            } else if (id != null && id == lastTapId && now - lastTapAt < 350 && tapTarget is PhotoItem) {
                                 onCrop(if (crop == id) null else id)
                             } else if (crop != null && id != crop) {
                                 onCrop(null)
@@ -294,7 +338,7 @@ fun CanvasView(
                 c.drawRect(6f / s, 8f / s, project.width + 6f / s, project.height + 8f / s, fillPaint)
                 c.save()
                 c.clipRect(0f, 0f, project.width.toFloat(), project.height.toFloat())
-                app.renderer.draw(c, project, { bitmaps[it] })
+                app.renderer.draw(c, project, { bitmaps[it] }, placeholders = true)
                 c.restore()
 
                 // While cropping, show the rest of the photo faintly outside its frame.
@@ -338,6 +382,14 @@ fun CanvasView(
                     if (g.vertical) c.drawLine(g.at, -40f / s, g.at, project.height + 40f / s, linePaint)
                     else c.drawLine(-40f / s, g.at, project.width + 40f / s, g.at, linePaint)
                 }
+                // The line being drawn.
+                if (ink.size > 1) {
+                    linePaint.color = project.theme.accent.toInt()
+                    linePaint.strokeWidth = 10f
+                    linePaint.strokeCap = Paint.Cap.ROUND
+                    for (i in 1 until ink.size) c.drawLine(ink[i - 1].x, ink[i - 1].y, ink[i].x, ink[i].y, linePaint)
+                    linePaint.strokeCap = Paint.Cap.BUTT
+                }
                 c.restoreToCount(save)
 
                 // Slide numbers above the canvas.
@@ -350,7 +402,16 @@ fun CanvasView(
 
                 // Selection outline and handles, in screen space so they stay the same size.
                 val selItem = selectedId?.let { project.item(it) }
-                if (selItem != null) {
+                if (selItem is RouteItem) {
+                    for (pt in selItem.points) {
+                        val o = viewport.toScreen(pt.x, pt.y)
+                        fillPaint.color = 0xFFFFFFFF.toInt()
+                        c.drawCircle(o.x, o.y, 10 * density, fillPaint)
+                        linePaint.color = 0xFF2F6FED.toInt()
+                        linePaint.strokeWidth = 2.5f * density
+                        c.drawCircle(o.x, o.y, 10 * density, linePaint)
+                    }
+                } else if (selItem != null) {
                     val corners = selItem.frame.corners().map { viewport.toScreen(it.x, it.y) }
                     linePaint.color = if (croppingId == selItem.id) 0xFFF2B33D.toInt() else 0xFF2F6FED.toInt()
                     linePaint.strokeWidth = 2 * density
@@ -359,7 +420,7 @@ fun CanvasView(
                         c.drawLine(a.x, a.y, b.x, b.y, linePaint)
                     }
                     if (croppingId != selItem.id) {
-                        for ((hd, o) in handles(selItem.frame, selItem is TextItem)) {
+                        for ((hd, o) in handles(selItem)) {
                             fillPaint.color = 0xFFFFFFFF.toInt()
                             c.drawCircle(o.x, o.y, 9 * density, fillPaint)
                             linePaint.strokeWidth = 2 * density
@@ -377,14 +438,14 @@ fun CanvasView(
 }
 
 /** A text box keeps its height fitted to its words while it's stretched. */
-private fun fitText(app: io.github.darkxace01.unroll.UnrollApp, item: Item, handle: Handle): Item {
+private fun fitText(app: io.github.darkxace01.unroll.UnrollApp, p: Project, item: Item, handle: Handle): Item {
     if (item !is TextItem) return item
     return when (handle) {
-        Handle.Right -> item.copy(frame = item.frame.copy(h = app.renderer.textHeight(item)))
+        Handle.Right -> item.copy(frame = item.frame.copy(h = app.renderer.textHeight(item, p)))
         Handle.Corner -> {
-            val k = item.frame.h / app.renderer.textHeight(item).coerceAtLeast(1f)
+            val k = item.frame.h / app.renderer.textHeight(item, p).coerceAtLeast(1f)
             val t = item.copy(size = item.size * k)
-            t.copy(frame = t.frame.copy(h = app.renderer.textHeight(t)))
+            t.copy(frame = t.frame.copy(h = app.renderer.textHeight(t, p)))
         }
         else -> item
     }
