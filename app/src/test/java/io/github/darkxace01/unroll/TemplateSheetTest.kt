@@ -44,12 +44,13 @@ class TemplateSheetTest {
             }
         }.toMap()
         var n = 0
+        io.github.darkxace01.unroll.render.SamplePhotos.init(androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>().assets)
         // One sheet per style kit (each row a layout), plus one per hand-made template, all with painted sample photos.
         val groups = Templates.all.map { listOf(it) } + TemplateKits.kits.map { k -> Templates.everything.filter { it.kit == k.id } }
         for (group in groups) {
             val scale = 0.2f
             val gap = 10
-            val rows = group.map { t -> Templates.build(t, emptyList(), TripInfo("Lisbon", "12–16 May", "Lisbon", 5), "p", t.name, 0, { "i${n++}" }) }
+            val rows = group.map { t -> Templates.build(t, emptyList(), io.github.darkxace01.unroll.templates.previewInfoFor(t.category), "p", t.name, 0, { "i${n++}" }) }
             val first = rows.first()
             val sw = (first.slideW * scale).toInt(); val sh = (first.slideH * scale).toInt()
             val bmp = Bitmap.createBitmap((sw + gap) * 5, (sh + gap) * rows.size, Bitmap.Config.ARGB_8888)
@@ -62,7 +63,9 @@ class TemplateSheetTest {
                     c.clipRect(0f, 0f, sw.toFloat(), sh.toFloat())
                     c.scale(scale, scale)
                     c.translate(-s * p.slideW.toFloat(), 0f)
-                    renderer.draw(c, p, { null }, samples = true)
+                    val t = group[r]
+                    renderer.draw(c, p, { null }, samples = true,
+                        sampleOrder = io.github.darkxace01.unroll.render.SamplePhotos.order(t.id.hashCode(), io.github.darkxace01.unroll.render.SamplePhotos.tagsFor(t.category.name)))
                     c.restore()
                 }
             }

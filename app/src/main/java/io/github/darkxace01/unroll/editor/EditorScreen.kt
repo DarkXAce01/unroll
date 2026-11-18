@@ -269,7 +269,7 @@ fun EditorScreen(projectId: String, onBack: () -> Unit, onPreview: () -> Unit, o
                             vm.applyTemplate(t, io.github.darkxace01.unroll.data.NewProject.tripInfo(app, photos))
                             sheet = null
                         }
-                    }, maxHeight = 640.dp)
+                    }, height = 640.dp)
                 }
                 Sheet.Lines -> LinesSheet(
                     onConnect = { vm.connectPhotos(); sheet = Sheet.Route },

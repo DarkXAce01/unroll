@@ -37,6 +37,7 @@ class UnrollApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        io.github.darkxace01.unroll.render.SamplePhotos.init(assets)
         scope.launch { store.load() }
     }
 

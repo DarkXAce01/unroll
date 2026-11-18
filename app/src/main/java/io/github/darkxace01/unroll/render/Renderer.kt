@@ -104,8 +104,10 @@ class Renderer(val fonts: Fonts) {
         skipId: String? = null,
         placeholders: Boolean = false,
         look: ((Item) -> Look)? = null,
-        /** Fill empty slots with painted sample scenes (template previews). */
+        /** Fill empty slots with sample photos (template previews). */
         samples: Boolean = false,
+        /** Which sample photo each empty slot gets, in order; null = in turn. */
+        sampleOrder: IntArray? = null,
     ) {
         drawBackground(c, p, p.width.toFloat(), p.height.toFloat())
         var slot = 0
@@ -129,7 +131,7 @@ class Renderer(val fonts: Fonts) {
                 }
             }
             when (item) {
-                is PhotoItem -> drawPhoto(c, p, item, if (item.isEmpty) null else bitmap(item.uri), placeholders, if (samples) slot++ else -1)
+                is PhotoItem -> drawPhoto(c, p, item, if (item.isEmpty) null else bitmap(item.uri), placeholders, if (!samples) -1 else if (sampleOrder != null && sampleOrder.isNotEmpty()) sampleOrder[slot++ % sampleOrder.size] else slot++)
                 is TextItem -> drawText(c, p, item, l.reveal)
                 is ShapeItem -> drawShape(c, p, item)
                 is StickerItem -> drawSticker(c, p, item)
@@ -205,7 +207,20 @@ class Renderer(val fonts: Fonts) {
             val clip = c.save()
             if (mounted) c.clipPath(Mounts.window(kind, innerRect, f.w)) else c.clipPath(shape)
             if (bmp == null && sample >= 0) {
-                Scenes.draw(c, innerRect, sample)
+                val sb = SamplePhotos.bitmap(sample)
+                if (sb == null) Scenes.draw(c, innerRect, sample) else {
+                    // Cover the slot, centred, the way a picked photo would land.
+                    val a = innerRect.width() / innerRect.height()
+                    val src = if (sb.width.toFloat() / sb.height > a) {
+                        val w = (sb.height * a).toInt(); val x = (sb.width - w) / 2; Rect(x, 0, x + w, sb.height)
+                    } else {
+                        val h = (sb.width / a).toInt(); val y = (sb.height - h) / 2; Rect(0, y, sb.width, y + h)
+                    }
+                    paint.reset(); paint.isAntiAlias = true; paint.isFilterBitmap = true
+                    if (!item.adjust.isIdentity) paint.colorFilter = ColorMatrixColorFilter(ColorMatrix(ColorMath.matrix(item.adjust)))
+                    c.drawBitmap(sb, src, innerRect, paint)
+                    paint.colorFilter = null
+                }
             } else if (bmp == null) {
                 paint.reset(); paint.isAntiAlias = true
                 paint.color = blend(p.theme.muted, p.theme.background, 0.75f).toInt()
